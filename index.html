@@ -82,13 +82,15 @@
 }
 html, body {
   width: 100%;
-  height: 100%;
+  height: auto;
+  min-height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #0a0606; /* Background default gelap agar sinkron dengan login */
+  background-color: #0a0606;
+  overflow-x: hidden;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',sans-serif;color:#333;font-size:14px}
+body{font-family:'Inter',sans-serif;color:#333;font-size:14px;overflow-y: auto !important;}
 
 /* LOGIN */
 #login-screen{
