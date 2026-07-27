@@ -1,5 +1,6 @@
 // ===== SISTEM KEUANGAN IJEF CORP =====
 'use strict';
+window._keuanganAppLoaded = true;
 
 // ===== CONSTANTS (must be at top) =====
 const ROLES = { superadmin: 4, admin: 3, leader: 2, bod: 2, viewer: 1, nanda: 1 };
@@ -649,7 +650,7 @@ async function getApprovers() {
 }
 
 // ===== INIT & AUTH =====
-window.onload = async function() {
+window.addEventListener('load', async function() {
   var urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('mode') === 'atk-form') { showATKPublicForm(); return; }
 
@@ -663,16 +664,25 @@ window.onload = async function() {
 
   showLoading(true);
   try {
-    await initKFirebase();
+    // Timeout for Firebase init (5 seconds) to prevent infinite loading
+    const fbPromise = initKFirebase();
+    const timeoutPromise = new Promise(function(resolve) { setTimeout(function(){ resolve('timeout'); }, 5000); });
+    const fbResult = await Promise.race([fbPromise, timeoutPromise]);
+
+    if (fbResult === 'timeout') {
+      console.warn('[System] Firebase init timed out. Operating in Offline/Local Mode.');
+      window._kOfflineMode = true;
+    }
+
     await initUsers();
     const saved = _klget('k_session', null);
     if (saved) {
       const u = await findUser(saved.username, saved.password);
       if (u) { KU = u; buildApp(); showLoading(false); return; }
     }
-  } catch(e) { console.warn('Init error:', e); }
+  } catch(e) { console.warn('App init fatal error:', e); }
   showLoading(false);
-};
+});
 
 async function initUsers() {
   const DEFAULT = { username: 'superadmin', password: 'admin2026', role: 'superadmin', nama: 'Super Admin', email: '' };
@@ -712,19 +722,31 @@ async function initUsers() {
 }
 
 async function findUser(username, password) {
-  // 1. Try Firebase direct lookup
+  // 1. Try fallback localStorage first (fast)
+  const local = _klget('kusers', []);
+  const foundLocal = local.find(function(u) { return u.username === username && u.password === password; });
+  if (foundLocal) return foundLocal;
+
+  // 2. Try Firebase lookup (with timeout)
   if (kfbReady) {
     try {
-      const snap = await kfs.getDoc(kfs.doc(kdb, 'k_users', username));
-      if (snap.exists()) {
-        const u = snap.data();
-        if (u.password === password) return u;
-      }
-    } catch(e) { console.warn('findUser Firebase:', e); }
+      const fbPromise = (async () => {
+        const snap = await kfs.getDoc(kfs.doc(kdb, 'k_users', username));
+        if (snap.exists()) {
+          const u = snap.data();
+          if (u.password === password) return u;
+        }
+        return null;
+      })();
+
+      const timeoutPromise = new Promise(function(resolve) { setTimeout(function(){ resolve('timeout'); }, 3000); });
+      const result = await Promise.race([fbPromise, timeoutPromise]);
+
+      if (result !== 'timeout' && result) return result;
+    } catch(e) { console.warn('findUser Firebase:', e.message); }
   }
-  // 2. Fallback localStorage
-  const local = _klget('kusers', []);
-  return local.find(function(u) { return u.username === username && u.password === password; }) || null;
+
+  return null;
 }
 
 async function doLogin() {
