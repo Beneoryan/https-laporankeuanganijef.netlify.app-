@@ -1798,11 +1798,14 @@ input:focus, select:focus, textarea:focus {
 <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
 
 <script src="keuangan-firebase.js"></script>
-<script src="keuangan-app.js?v=20260727-v4-final"></script>
+<script src="keuangan-app.js?v=20260727-v5-force"></script>
 <script>
 window.addEventListener('load', function() {
+  console.log('Window load event triggered');
   if (!window._keuanganAppLoaded) {
-    alert('FATAL: Script keuangan-app.js gagal dimuat atau gagal eksekusi (Syntax Error?)\n\nMohon lakukan Hard Refresh (Ctrl+F5)');
+    var msg = 'FATAL: Script keuangan-app.js gagal dimuat.\n\nHal ini biasanya karena:\n1. Cache browser lama (Tekan Ctrl+F5)\n2. Syntax Error di versi terbaru\n\nJika sudah Refresh tetap gagal, mohon kirim screenshot console log (F12).';
+    alert(msg);
+    document.body.innerHTML += '<div style="position:fixed;top:0;left:0;right:0;background:red;color:white;padding:20px;z-index:9999;font-weight:bold">' + msg.replace(/\n/g, '<br>') + '</div>';
   }
 });
 function togglePwd(inputId, btn) {
