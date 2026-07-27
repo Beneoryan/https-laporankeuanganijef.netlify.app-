@@ -714,7 +714,9 @@ async function initUsers() {
     (async () => {
       for (var i = 0; i < systemUsers.length; i++) {
         try {
-          await kfs.setDoc(kfs.doc(kdb, 'k_users', systemUsers[i].username), systemUsers[i]);
+          const u = systemUsers[i];
+          const docId = String(u.username).toLowerCase();
+          await kfs.setDoc(kfs.doc(kdb, 'k_users', docId), u);
         } catch(e) { console.warn('Firebase user sync:', systemUsers[i].username, e.message); }
       }
     })();
@@ -722,16 +724,26 @@ async function initUsers() {
 }
 
 async function findUser(username, password) {
+  const qUser = String(username || '').toLowerCase().trim();
+
   // 1. Try fallback localStorage first (fast)
   const local = _klget('kusers', []);
-  const foundLocal = local.find(function(u) { return u.username === username && u.password === password; });
+  const foundLocal = local.find(function(u) {
+    return String(u.username || '').toLowerCase() === qUser && u.password === password;
+  });
   if (foundLocal) return foundLocal;
 
   // 2. Try Firebase lookup (with timeout)
   if (kfbReady) {
     try {
       const fbPromise = (async () => {
-        const snap = await kfs.getDoc(kfs.doc(kdb, 'k_users', username));
+        // We try the exact username first
+        let snap = await kfs.getDoc(kfs.doc(kdb, 'k_users', username));
+        if (!snap.exists() && username !== qUser) {
+          // If not found, try the lowercase version as ID
+          snap = await kfs.getDoc(kfs.doc(kdb, 'k_users', qUser));
+        }
+
         if (snap.exists()) {
           const u = snap.data();
           if (u.password === password) return u;
