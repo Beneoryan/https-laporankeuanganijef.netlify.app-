@@ -383,6 +383,7 @@ function _klget(key, def) {
     return (val !== null && val !== undefined) ? val : def;
   } catch(e) { return def; }
 }
+
 function _klset(key, val) {
   try {
     var str = JSON.stringify(val);
