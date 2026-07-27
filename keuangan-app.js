@@ -689,7 +689,7 @@ async function initUsers() {
   const NANDA = { username: 'nanda', password: 'nanda2026', role: 'nanda', nama: 'Nanda Yoga Maulana', email: '' };
   const BOD = { username: 'bod', password: 'bod2026', role: 'bod', nama: 'Board of Directors', email: '' };
   const IRSAN = { username: 'irsan', password: 'irsan2026', role: 'leader', nama: 'Irsan', email: 'irsanijefcorp@gmail.com' };
-  const RYAN = { username: 'ryanbenoe', password: 'Ryanbenoe@21', role: 'superadmin', nama: 'Ryan Benoe', email: 'benoeryan21@gmail.com' };
+  const RYAN = { username: 'ryanbenoe', password: 'ryanbenoe21', role: 'superadmin', nama: 'Ryan Benoe', email: 'benoeryan21@gmail.com' };
   const systemUsers = [DEFAULT, NANDA, BOD, IRSAN, RYAN];
 
   // Update localStorage first (fast)
@@ -785,10 +785,15 @@ async function doLogin() {
       err.textContent = 'Username atau password salah!';
       err.style.display = 'block';
 
-      // Auto-hint for case sensitivity if it looks like a known user
-      const knownUsers = ['ryanbenoe', 'irsan', 'superadmin', 'nanda', 'bod'];
-      if (knownUsers.includes(username.toLowerCase())) {
-        err.innerHTML += '<br><small style="opacity:0.8">Catatan: Password peka terhadap huruf besar/kecil (Case Sensitive).</small>';
+      // Detailed feedback
+      const qUser = String(username || '').toLowerCase().trim();
+      const local = _klget('kusers', []);
+      const userExists = local.some(function(u) { return String(u.username || '').toLowerCase() === qUser; });
+
+      if (userExists) {
+        err.innerHTML += '<br><small style="color:#d32f2f">Username ditemukan, tapi password salah. Perhatikan huruf besar/kecil.</small>';
+      } else {
+        err.innerHTML += '<br><small style="color:#d32f2f">Username "' + qUser + '" tidak terdaftar di sistem ini.</small>';
       }
       return;
     }
