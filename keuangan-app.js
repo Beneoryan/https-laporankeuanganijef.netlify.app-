@@ -762,26 +762,45 @@ async function findUser(username, password) {
 }
 
 async function doLogin() {
-  const username = document.getElementById('login-user').value.trim();
-  const password = document.getElementById('login-pass').value.trim();
+  const userEl = document.getElementById('login-user');
+  const passEl = document.getElementById('login-pass');
+  const username = userEl.value.trim();
+  const password = passEl.value.trim();
   const err = document.getElementById('login-error');
+
   err.style.display = 'none';
   if (!username || !password) {
     err.textContent = 'Username dan password wajib diisi!';
     err.style.display = 'block';
     return;
   }
+
   showLoading(true);
-  const found = await findUser(username, password);
-  showLoading(false);
-  if (!found) {
-    err.textContent = 'Username atau password salah!';
-    err.style.display = 'block';
-    return;
+  try {
+    const found = await findUser(username, password);
+    showLoading(false);
+
+    if (!found) {
+      console.warn('[Auth] Login failed for:', username);
+      err.textContent = 'Username atau password salah!';
+      err.style.display = 'block';
+
+      // Auto-hint for case sensitivity if it looks like a known user
+      const knownUsers = ['ryanbenoe', 'irsan', 'superadmin', 'nanda', 'bod'];
+      if (knownUsers.includes(username.toLowerCase())) {
+        err.innerHTML += '<br><small style="opacity:0.8">Catatan: Password peka terhadap huruf besar/kecil (Case Sensitive).</small>';
+      }
+      return;
+    }
+
+    KU = found;
+    _klset('k_session', { username: found.username, password: found.password });
+    buildApp();
+  } catch(e) {
+    showLoading(false);
+    console.error('[Auth] Login Error:', e);
+    alert('Terjadi kesalahan sistem saat login. Mohon Hard Refresh.');
   }
-  KU = found;
-  _klset('k_session', { username: found.username, password: found.password });
-  buildApp();
 }
 
 function doLogout() {
