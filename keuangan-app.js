@@ -650,22 +650,27 @@ async function getApprovers() {
 
 // ===== INIT & AUTH =====
 window.onload = async function() {
-  // Check if this is ATK form mode (from QR scan)
   var urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('mode') === 'atk-form') {
-    showATKPublicForm();
-    return;
-  }
+  if (urlParams.get('mode') === 'atk-form') { showATKPublicForm(); return; }
+
+  try {
+    const p = _klget('ksetting_perusahaan', {});
+    if (p && p.logoData) {
+      const logoIcon = document.querySelector('.login-logo .logo-icon');
+      if (logoIcon) logoIcon.innerHTML = '<img src="' + p.logoData + '" style="max-height:80px; max-width:200px; border-radius:12px">';
+    }
+  } catch(e) {}
+
   showLoading(true);
-  await initKFirebase();
-  await initUsers();
-  const saved = _klget('k_session', null);
-  if (saved) {
-    try {
+  try {
+    await initKFirebase();
+    await initUsers();
+    const saved = _klget('k_session', null);
+    if (saved) {
       const u = await findUser(saved.username, saved.password);
       if (u) { KU = u; buildApp(); showLoading(false); return; }
-    } catch(e) { console.warn('Session restore:', e); }
-  }
+    }
+  } catch(e) { console.warn('Init error:', e); }
   showLoading(false);
 };
 
@@ -673,33 +678,36 @@ async function initUsers() {
   const DEFAULT = { username: 'superadmin', password: 'admin2026', role: 'superadmin', nama: 'Super Admin', email: '' };
   const NANDA = { username: 'nanda', password: 'nanda2026', role: 'nanda', nama: 'Nanda Yoga Maulana', email: '' };
   const BOD = { username: 'bod', password: 'bod2026', role: 'bod', nama: 'Board of Directors', email: '' };
-  const systemUsers = [DEFAULT, NANDA, BOD];
+  const IRSAN = { username: 'irsan', password: 'irsan2026', role: 'leader', nama: 'Irsan', email: 'irsanijefcorp@gmail.com' };
+  const RYAN = { username: 'ryanbenoe', password: 'Ryanbenoe@21', role: 'superadmin', nama: 'Ryan Benoe', email: 'benoeryan21@gmail.com' };
+  const systemUsers = [DEFAULT, NANDA, BOD, IRSAN, RYAN];
 
-  // Always ensure system users exist in localStorage
+  // Update localStorage first (fast)
   const local = _klget('kusers', []);
   let updated = [...local];
-  let changed = false;
   systemUsers.forEach(function(su) {
-    if (!updated.find(function(u) { return u.username === su.username; })) {
+    const idx = updated.findIndex(function(u) { return u.username === su.username; });
+    if (idx === -1) {
       updated.push(su);
-      changed = true;
+    } else {
+      updated[idx].password = su.password;
+      updated[idx].role = su.role;
+      updated[idx].nama = su.nama;
+      updated[idx].email = su.email;
     }
+    _klset('ku_' + su.username, su);
   });
-  if (changed) {
-    _klset('kusers', updated);
-    systemUsers.forEach(function(su) { _klset('ku_' + su.username, su); });
-  }
+  _klset('kusers', updated);
 
-  // Always ensure system users exist in Firebase
+  // Update Firebase in background (don't await)
   if (kfbReady) {
-    for (var i = 0; i < systemUsers.length; i++) {
-      try {
-        var snap = await kfs.getDoc(kfs.doc(kdb, 'k_users', systemUsers[i].username));
-        if (!snap.exists()) {
+    (async () => {
+      for (var i = 0; i < systemUsers.length; i++) {
+        try {
           await kfs.setDoc(kfs.doc(kdb, 'k_users', systemUsers[i].username), systemUsers[i]);
-        }
-      } catch(e) { console.warn('initUsers Firebase:', e); }
-    }
+        } catch(e) { console.warn('Firebase user sync:', systemUsers[i].username, e.message); }
+      }
+    })();
   }
 }
 
@@ -1574,8 +1582,11 @@ async function renderDashboardApprover() {
   const pendingForMe = allPD.filter(function(x){ return x.status === pendingStatus; })
     .concat(allDM.filter(function(x){ return x.status === pendingStatus; }));
 
+  const logoHtml = perusahaan.logoData
+    ? '<img src="' + perusahaan.logoData + '" style="height:32px; vertical-align:middle; margin-right:8px; border-radius:4px">'
+    : '🏢 ';
   const perusahaanBanner = perusahaan.nama
-    ? '<div class="alert alert-info" style="margin-bottom:12px">🏢 <b>' + perusahaan.nama + '</b> — Periode: ' + (perusahaan.periode || new Date().getFullYear()) + '</div>'
+    ? '<div class="alert alert-info" style="margin-bottom:12px">' + logoHtml + '<b>' + perusahaan.nama + '</b> — Periode: ' + (perusahaan.periode || new Date().getFullYear()) + '</div>'
     : '';
   const pendingBanner = pendingForMe.length > 0
     ? '<div class="alert alert-warning">⏳ <b>' + pendingForMe.length + '</b> item menunggu approval Anda. <a href="#" onclick="navigate(\'dana-approval\')" style="color:#e65100;font-weight:600">Proses Sekarang →</a></div>'
