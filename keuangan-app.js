@@ -928,9 +928,12 @@ function buildSidebar() {
   function renderItemsRecursive(items, level) {
     let subHtml = '';
     items.forEach(function(item) {
-      // Filter role per item
+      if (!hasRole(item.minRole)) return;
+
+      // Filter role per item for Nanda/BOD
       if (isNanda && item.id !== 'portal-aset' && group.group === 'Transaksi') return;
       if (isBOD && group.group === 'Transaksi' && item.id !== 'dana-approval') return;
+      // isLimited can see IMS
       if (isLimited && group.group === 'Transaksi' && item.id !== 'dana-approval' && !item.id.startsWith('ims-')) return;
 
       const hasSub = item.items && item.items.length > 0;
@@ -1064,9 +1067,12 @@ function navigate(id) {
     btnBack.style.display = (id === 'lap-dashboard') ? 'none' : 'inline-block';
   }
 
-  const allItems = MENU.reduce(function(acc, g) { return acc.concat(g.items); }, []);
+  const allItems = [];
+  function collect(its) { its.forEach(i => { allItems.push(i); if (i.items) collect(i.items); }); }
+  MENU.forEach(g => collect(g.items));
   const menuItem = allItems.find(function(i) { return i.id === id; });
-  if (!hasRole(menuItem ? menuItem.minRole : 'viewer')) return;
+  if (!menuItem) return;
+  if (!hasRole(menuItem.minRole)) return;
   document.querySelectorAll('.sidebar-item').forEach(function(el) { el.classList.remove('active'); });
   document.querySelectorAll('.section').forEach(function(el) { el.classList.remove('active'); });
   const navEl = document.getElementById('nav-' + id);

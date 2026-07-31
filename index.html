@@ -159,7 +159,8 @@ body{font-family:'Inter',sans-serif;color:#333;font-size:14px;overflow-y: auto !
 /* SUBMENU LEVEL 2 & 3 */
 .sidebar-subgroup { overflow: hidden; }
 .sidebar-submenu { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; background: rgba(0,0,0,0.2); }
-.sidebar-subgroup.expanded > .sidebar-submenu { max-height: 1000px; }
+.sidebar-subgroup.expanded > .sidebar-submenu { max-height: 2000px !important; }
+.sidebar-group.expanded > .sidebar-group-items { max-height: 2000px !important; }
 .sidebar-item.sub { padding-left: 32px; font-size: 0.82rem; color: rgba(255,255,255,0.6); }
 .sidebar-item.sub-sub { padding-left: 48px; font-size: 0.78rem; color: rgba(255,255,255,0.5); }
 .sidebar-item.has-sub { justify-content: space-between; }
