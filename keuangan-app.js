@@ -48,6 +48,10 @@ const MENU = [
     { id: 'dana-approval',   label: 'Approval Center', icon: '✅', minRole: 'viewer' },
     { id: 'portal-aset',     label: 'Portal Perlengkapan & Aset', icon: '📦', minRole: 'viewer' },
   ]},
+  { group: 'KEUANGAN IMS', icon: '🏢', items: [
+    { id: 'ims-menu-keuangan', label: 'Menu Keuangan', icon: '📊', minRole: 'viewer' },
+    { id: 'ims-sub-menu', label: 'Sub Menu Keuangan', icon: '💰', minRole: 'viewer' },
+  ]},
   { group: 'Jurnal', icon: '📝', items: [
     { id: 'jurnal-umum',         label: 'Jurnal Umum',         icon: '📓', minRole: 'leader' },
     { id: 'jurnal-penyesuaian',  label: 'Jurnal Penyesuaian',  icon: '🔧', minRole: 'leader' },
@@ -1156,6 +1160,8 @@ async function renderSection(id) {
       case 'dana-masuk':          el.innerHTML = await renderDanaMasuk(); break;
       case 'dana-approval':       el.innerHTML = await renderApprovalCenter(); break;
       case 'portal-aset':         el.innerHTML = await renderPortalAset(); break;
+      case 'ims-menu-keuangan':   el.innerHTML = await renderIMSSubMenu(); break;
+      case 'ims-sub-menu':        el.innerHTML = await renderIMSSubMenu(); break;
       default: el.innerHTML = '<div class="empty-state"><span class="icon">🚧</span>Halaman dalam pengembangan</div>';
     }
   } catch(e) {
@@ -16868,3 +16874,201 @@ function updateChatMessageList(rawMsgs) {
     container.scrollTop = container.scrollHeight;
   }
 }
+
+// ===== KEUANGAN IMS MODULE =====
+async function renderIMSSubMenu() {
+  const imsTransactions = await KDB.getAll('ims_transactions');
+  const permohonanIMS = imsTransactions.filter(t => t.type === 'permohonan');
+  
+  const categories = [
+    { id: 'penggajian', label: 'Penggajian', icon: '💰' },
+    { id: 'tax-bpjs', label: 'Tax & BPJS', icon: '🧮' },
+    { id: 'insentif', label: 'Insentif', icon: '🏆' },
+    { id: 'reimbursement', label: 'Reimbursement', icon: '📄' },
+    { id: 'kasbon-loan', label: 'Kasbon & Loan', icon: '💳' },
+    { id: 'tunjangan', label: 'Tunjangan', icon: '🎁' },
+  ];
+
+  const catHtml = categories.map(c => `
+    <div class="stat-box" onclick="showIMSCategoryForm('${c.id}', '${c.label}')" style="cursor:pointer; text-align:center;">
+      <div style="font-size: 2rem; margin-bottom: 8px;">${c.icon}</div>
+      <div class="lbl" style="font-weight: 700; color: #333;">${c.label}</div>
+    </div>
+  `).join('');
+
+  const rows = imsTransactions.slice().sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||'')).map(t => `
+    <tr>
+      <td>${fmtDate(t.tanggal)}</td>
+      <td><span class="chip">${t.category}</span></td>
+      <td>${t.keterangan}</td>
+      <td class="fw-bold ${t.type==='permohonan'?'text-red':'text-green'}">${fmtRp(t.nominal)}</td>
+      <td>${statusBadge(t.status || 'Success')}</td>
+      <td>${t.refId || '-'}</td>
+    </tr>
+  `).join('');
+
+  return '<div class="page-title">💰 Sub Menu Keuangan IMS</div>'
+    + '<div class="card">'
+    + '<div class="card-header"><h2>Transaksi Keuangan IMS</h2></div>'
+    + '<div class="stats-row" style="grid-template-columns: 1fr;">'
+    + '<div class="stat-box" style="text-align: left; padding: 24px; border-left: 5px solid #DB7093;">'
+    + '<div class="val" style="font-size: 2.5rem; color: #DB7093;">' + permohonanIMS.length + '</div>'
+    + '<div class="lbl" style="font-size: 0.85rem; font-weight: 600;">PERMOHONAN IMS</div>'
+    + '</div>'
+    + '</div>'
+    + '<div class="mt-12 flex-row" style="gap: 12px;">'
+    + '<button class="btn btn-danger" onclick="showIMSForm(\'permohonan\')">Buat Permohonan Dana IMS</button>'
+    + '<button class="btn btn-success" onclick="showIMSForm(\'danamasuk\')">Catat Dana Masuk IMS</button>'
+    + '</div>'
+    + '</div>'
+    
+    + '<div class="card">'
+    + '<div class="card-header"><h2>Kategori Keuangan</h2></div>'
+    + '<div class="stats-row" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px;">'
+    + catHtml
+    + '</div>'
+    + '</div>'
+
+    + '<div class="card">'
+    + '<div class="card-header"><h2>Riwayat Transaksi IMS</h2></div>'
+    + (imsTransactions.length ? '<div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Kategori</th><th>Keterangan</th><th>Nominal</th><th>Status</th><th>Ref ID</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<div class="empty-state"><span class="icon">📊</span>Belum ada riwayat transaksi IMS</div>')
+    + '</div>'
+
+    + '<div class="card">'
+    + '<div class="card-header"><h2>Panduan Integrasi</h2></div>'
+    + '<p style="color: #666; font-size: 0.9rem; line-height:1.5;">'
+    + 'Tombol di atas akan mengarahkan Anda ke form transaksi umum dengan keterangan yang sudah terisi otomatis untuk mempermudah pelacakan data IMS.'
+    + '</p>'
+    + '</div>';
+}
+
+function showIMSCategoryForm(catId, catLabel) {
+  showIMSForm('permohonan', { category: catLabel, keterangan: 'Permohonan Dana untuk ' + catLabel });
+}
+
+async function showIMSForm(type, prefill = {}) {
+  const title = type === 'permohonan' ? 'Buat Permohonan Dana IMS' : 'Catat Dana Masuk IMS';
+  const categories = ['Penggajian', 'Tax & BPJS', 'Insentif', 'Reimbursement', 'Kasbon & Loan', 'Tunjangan', 'Operasional IMS', 'Lainnya'];
+  const catOptions = categories.map(c => `<option ${(prefill.category === c)?'selected':''}>${c}</option>`).join('');
+  
+  const akunDebitOpts = await getAkunOptions(type === 'permohonan' ? 'Beban' : 'Aset Lancar');
+  const akunKreditOpts = await getAkunOptions(type === 'permohonan' ? 'Aset Lancar' : 'Pendapatan');
+
+  const html = '<div class="form-grid">'
+    + '<div class="fg"><label>Kategori IMS</label><select id="ims-category">' + catOptions + '</select></div>'
+    + '<div class="fg"><label>Tanggal</label><input type="date" id="ims-tanggal" value="' + today() + '"></div>'
+    + '<div class="fg"><label>Nominal (Rp)</label><input type="text" inputmode="decimal" id="ims-nominal" oninput="formatNominalInput(this)" placeholder="0"></div>'
+    + '<div class="fg full"><label>Keterangan</label><textarea id="ims-keterangan" placeholder="Keperluan...">' + (prefill.keterangan || '') + '</textarea></div>'
+    + '<div class="fg"><label>Akun Debit (COA)</label><select id="ims-akun-debit">' + akunDebitOpts + '</select></div>'
+    + '<div class="fg"><label>Akun Kredit (COA)</label><select id="ims-akun-kredit">' + akunKreditOpts + '</select></div>'
+    + (type === 'permohonan' ? 
+      '<div class="fg"><label>Nama PIC</label><input id="ims-pic" value="' + (KU.nama||KU.username) + '"></div>' +
+      '<div class="fg"><label>Nama Leader</label><input id="ims-leader" value="Irsan"></div>' : ''
+    )
+    + '</div>'
+    + '<div class="modal-footer">'
+    + '<button class="btn btn-outline" onclick="closeModalDirect()">Batal</button>'
+    + '<button class="btn btn-primary" onclick="simpanIMSRequest(\'' + type + '\')">Simpan & Integrasikan</button>'
+    + '</div>';
+
+  openModal(html, title);
+}
+
+async function simpanIMSRequest(type) {
+  const category = document.getElementById('ims-category').value;
+  const tanggal = document.getElementById('ims-tanggal').value;
+  const nominal = parseNominal(document.getElementById('ims-nominal').value);
+  const keterangan = document.getElementById('ims-keterangan').value.trim();
+  const akunDebit = document.getElementById('ims-akun-debit').value;
+  const akunKredit = document.getElementById('ims-akun-kredit').value;
+
+  if (!nominal || !keterangan) { showAlert('Nominal dan keterangan wajib diisi!', 'warning'); return; }
+
+  showLoading(true);
+  const imsId = genId('IMS');
+  const refId = type === 'permohonan' ? genId('PD') : genId('DM');
+
+  const imsData = {
+    id: imsId,
+    type: type,
+    category: category,
+    tanggal: tanggal,
+    nominal: nominal,
+    keterangan: '[IMS] ' + category + ': ' + keterangan,
+    status: 'Integrated',
+    refId: refId,
+    createdBy: KU.username,
+    createdAt: new Date().toISOString()
+  };
+
+  await KDB.save('ims_transactions', imsId, imsData);
+
+  if (type === 'permohonan') {
+    const approvers = await getApprovers();
+    const pdData = {
+      id: refId,
+      tipe: 'permohonan',
+      pemohon: KU.username,
+      namaPemohon: '[IMS] ' + KU.nama,
+      namaPIC: document.getElementById('ims-pic').value,
+      namaLeader: document.getElementById('ims-leader').value,
+      noPOInvoice: imsId,
+      nominal: nominal,
+      jatuhTempo: tanggal,
+      tipeTransaksi: 'Transfer',
+      namaBank: '-',
+      noRekening: '-',
+      namaRekening: '-',
+      keterangan: imsData.keterangan,
+      buktiDokumen: '',
+      akunDebit: akunDebit,
+      akunKredit: akunKredit,
+      tanggal: tanggal,
+      status: STATUS.PENDING_L1,
+      approvalLog: [{ layer: 0, action: 'submit', by: KU.username, nama: KU.nama, at: new Date().toISOString(), catatan: 'Otomatis dibuat dari Portal IMS' }],
+      approvers: approvers,
+      createdBy: KU.username,
+      createdAt: new Date().toISOString(),
+      sumber: 'IMS'
+    };
+    await KDB.save('permohonan', refId, pdData);
+    
+    // Notifications
+    kirimNotifikasi('📤 Permohonan IMS Baru', (KU.nama) + ' mengajukan ' + fmtRp(nominal) + ' via IMS — ' + category, '');
+    kirimEmailNotifikasi('Permohonan Dana IMS Baru', 'Kategori: ' + category + '\nNominal: ' + fmtRp(nominal) + '\nKeterangan: ' + keterangan, 'pd_baru');
+    
+  } else {
+    // Dana Masuk
+    const approvers = await getApprovers();
+    const dmData = {
+      id: refId,
+      tipe: 'danamasuk',
+      sumber: 'IMS - ' + category,
+      noRef: imsId,
+      tanggal: tanggal,
+      nominal: nominal,
+      tipeTransaksi: 'Transfer Bank',
+      akunTerima: akunDebit,
+      kategori: akunKredit,
+      namaRekening: '-',
+      keterangan: imsData.keterangan,
+      buktiDokumen: '',
+      status: STATUS.PENDING_L1,
+      approvalLog: [{ layer: 0, action: 'submit', by: KU.username, nama: KU.nama, at: new Date().toISOString(), catatan: 'Otomatis dicatat dari Portal IMS' }],
+      approvers: approvers,
+      createdBy: KU.username,
+      createdAt: new Date().toISOString(),
+      sumber: 'IMS'
+    };
+    await KDB.save('danamasuk', refId, dmData);
+    
+    kirimNotifikasi('📥 Dana Masuk IMS Tercatat', category + ': ' + fmtRp(nominal), '');
+  }
+
+  showLoading(false);
+  closeModalDirect();
+  showAlert('Transaksi IMS berhasil diintegrasikan!');
+  navigate('ims-sub-menu');
+}
+
