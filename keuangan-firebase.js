@@ -360,8 +360,8 @@ function startRealtimeSync() {
 
   // Core collections
   var coreCols = ['jurnal', 'permohonan', 'danamasuk', 'inventori_atk', 'atk_log', 'settings', 'utangpiutang', 'chat_messages', 'notifikasi', 'ims_transactions'];
-  // IMS Live collections
-  var imsCols = ['ims_payroll', 'ims_insentif', 'ims_reimbursement', 'ims_kasbon', 'ims_tunjangan'];
+  // IMS Live collections (matching HR & Legal app exactly)
+  var imsCols = ['payroll', 'insentif', 'reimbursement', 'kasbon', 'tunjangan'];
 
   var onCollectionUpdate = function(col, items) {
     // Invoke app-level update hook if registered
