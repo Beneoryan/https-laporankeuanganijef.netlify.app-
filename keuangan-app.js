@@ -16886,113 +16886,126 @@ function updateChatMessageList(rawMsgs) {
 
 // ===== KEUANGAN IMS MODULE =====
 async function renderIMSSubMenu() {
-  // Use 'payroll' directly as stored in HR app
-  const payroll = await KDB.getAllIMS('payroll');
-  const imsTransactions = await KDB.getAll('ims_transactions');
-  const month = today().substring(0,7);
-  const currentPayroll = payroll.filter(p => p.periode === month);
-  
-  const categories = [
-    { id: 'ims-penggajian', label: 'Penggajian', icon: '💰' },
-    { id: 'ims-tax-bpjs', label: 'Tax & BPJS', icon: '🧮' },
-    { id: 'ims-insentif', label: 'Insentif', icon: '🏆' },
-    { id: 'ims-reimbursement', label: 'Reimbursement', icon: '📄' },
-    { id: 'ims-kasbon-loan', label: 'Kasbon & Loan', icon: '💳' },
-    { id: 'ims-tunjangan', label: 'Tunjangan', icon: '🎁' },
-  ];
-
-  const catHtml = categories.map(c => `
-    <div class="stat-box" onclick="navigate('${c.id}')" style="cursor:pointer; text-align:center; border-top:3px solid #DB7093">
-      <div style="font-size: 2.2rem; margin-bottom: 8px;">${c.icon}</div>
-      <div class="lbl" style="font-weight: 700; color: #333; font-size:0.8rem">${c.label}</div>
-    </div>
-  `).join('');
-
-  return '<div class="page-title">💰 Portal Keuangan IMS (Live)</div>'
-    + '<div class="card">'
-    + '<div class="card-header"><h2>Integrasi Sistem HR & Legal</h2></div>'
-    + '<div class="stats-row" style="grid-template-columns: 1fr 1fr;">'
-    + '<div class="stat-box" style="padding: 24px; border-left: 5px solid #DB7093;">'
-    + '<div class="val" style="font-size: 2.2rem; color: #DB7093;">' + currentPayroll.length + '</div>'
-    + '<div class="lbl">Payroll Periode ' + month + '</div>'
-    + '</div>'
-    + '<div class="stat-box green" style="padding: 24px; border-left: 5px solid #10b981;">'
-    + '<div class="val" style="font-size: 2.2rem; color: #10b981;">' + imsTransactions.length + '</div>'
-    + '<div class="lbl">Total Integrasi Selesai</div>'
-    + '</div>'
-    + '</div>'
-    + '</div>'
+  showLoading(true);
+  try {
+    const payroll = await KDB.getAllIMS('payroll');
+    const imsTransactions = await KDB.getAll('ims_transactions');
+    const month = today().substring(0,7);
+    const currentPayroll = payroll.filter(function(p) { return p.periode === month; });
     
-    + '<div class="card">'
-    + '<div class="card-header"><h2>Pilih Kategori untuk Sinkronisasi</h2></div>'
-    + '<div class="stats-row" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px;">'
-    + catHtml
-    + '</div>'
-    + '</div>'
+    const categories = [
+      { id: 'ims-penggajian', label: 'Penggajian', icon: '💰' },
+      { id: 'ims-tax-bpjs', label: 'Tax & BPJS', icon: '🧮' },
+      { id: 'ims-insentif', label: 'Insentif', icon: '🏆' },
+      { id: 'ims-reimbursement', label: 'Reimbursement', icon: '📄' },
+      { id: 'ims-kasbon-loan', label: 'Kasbon & Loan', icon: '💳' },
+      { id: 'ims-tunjangan', label: 'Tunjangan', icon: '🎁' },
+    ];
 
-    + '<div class="card">'
-    + '<div class="card-header"><h2>Panduan Integrasi Live</h2></div>'
-    + '<p style="color: #666; font-size: 0.9rem; line-height:1.6;">'
-    + 'Data di bawah ini ditarik secara <b>Real-time</b> dari aplikasi HR & Legal (IMS). Anda dapat melakukan sinkronisasi untuk membuat Permohonan Dana otomatis di sistem pusat.'
-    + '</p>'
-    + '</div>';
+    let catHtml = '';
+    categories.forEach(function(c) {
+      catHtml += '<div class="stat-box" onclick="navigate(\'' + c.id + '\')" style="cursor:pointer; text-align:center; border-top:3px solid #DB7093">'
+        + '<div style="font-size: 2.2rem; margin-bottom: 8px;">' + c.icon + '</div>'
+        + '<div class="lbl" style="font-weight: 700; color: #333; font-size:0.8rem">' + c.label + '</div>'
+        + '</div>';
+    });
+
+    const html = '<div class="page-title">💰 Portal Keuangan IMS (Live)</div>'
+      + '<div class="card">'
+      + '<div class="card-header"><h2>Integrasi Sistem HR & Legal</h2></div>'
+      + '<div class="stats-row" style="grid-template-columns: 1fr 1fr;">'
+      + '<div class="stat-box" style="padding: 24px; border-left: 5px solid #DB7093;">'
+      + '<div class="val" style="font-size: 2.2rem; color: #DB7093;">' + currentPayroll.length + '</div>'
+      + '<div class="lbl">Payroll Periode ' + month + '</div>'
+      + '</div>'
+      + '<div class="stat-box green" style="padding: 24px; border-left: 5px solid #10b981;">'
+      + '<div class="val" style="font-size: 2.2rem; color: #10b981;">' + imsTransactions.length + '</div>'
+      + '<div class="lbl">Total Integrasi Selesai</div>'
+      + '</div>'
+      + '</div>'
+      + '</div>'
+      
+      + '<div class="card">'
+      + '<div class="card-header"><h2>Pilih Kategori untuk Sinkronisasi</h2></div>'
+      + '<div class="stats-row" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px;">'
+      + catHtml
+      + '</div>'
+      + '</div>'
+
+      + '<div class="card">'
+      + '<div class="card-header"><h2>Panduan Integrasi Live</h2></div>'
+      + '<p style="color: #666; font-size: 0.9rem; line-height:1.6;">'
+      + 'Data di bawah ini ditarik secara <b>Real-time</b> dari aplikasi HR & Legal (IMS). Anda dapat melakukan sinkronisasi untuk membuat Permohonan Dana otomatis di sistem pusat.'
+      + '</p>'
+      + '</div>';
+    showLoading(false);
+    return html;
+  } catch(e) { 
+    showLoading(false);
+    return '<div class="alert alert-danger">Gagal memuat portal IMS: ' + e.message + '</div>';
+  }
 }
 
 // ===== KEUANGAN IMS: LIVE SUB-MODULES =====
 
 async function renderIMSPayroll() {
   const list = await KDB.getAllIMS('payroll');
-  const rows = list.slice().sort((a,b) => (b.periode||'').localeCompare(a.periode||'')).map(p => `
-    <tr>
-      <td class="fw-bold">${p.karyawan}</td>
-      <td>${p.periode||'-'}</td>
-      <td>${fmtRp(p.gajiPokok)}</td>
-      <td>${fmtRp(p.tunjangan)}</td>
-      <td>${fmtRp(p.insentif)}</td>
-      <td>${fmtRp(p.reimburse)}</td>
-      <td class="text-red">${fmtRp(p.potongan)}</td>
-      <td class="fw-bold text-green">${fmtRp(p.thp)}</td>
-      <td>${statusBadge(p.status || 'Success')}</td>
-      <td class="tbl-actions">
-        ${p.isSynced ? '<span class="badge badge-success">✓ Terintegrasi</span>' : `<button class="btn btn-xs btn-info" onclick="syncIMSToFinance('payroll', '${p.id}')">Sinkronisasi</button>`}
-      </td>
-    </tr>
-  `).join('');
+  let rows = '';
+  list.slice().sort(function(a,b){ return (b.periode||'').localeCompare(a.periode||''); }).forEach(function(p) {
+    const statusStr = p.isSynced ? '<span class="badge badge-success">✓ Terintegrasi</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'payroll\', \'' + p.id + '\')">Sinkronisasi</button>';
+    rows += '<tr>'
+      + '<td class="fw-bold">' + p.karyawan + '</td>'
+      + '<td>' + (p.periode||'-') + '</td>'
+      + '<td>' + fmtRp(p.gajiPokok) + '</td>'
+      + '<td>' + fmtRp(p.tunjangan) + '</td>'
+      + '<td>' + fmtRp(p.insentif) + '</td>'
+      + '<td>' + fmtRp(p.reimburse) + '</td>'
+      + '<td class="text-red">' + fmtRp(p.potongan) + '</td>'
+      + '<td class="fw-bold text-green">' + fmtRp(p.thp) + '</td>'
+      + '<td>' + statusBadge(p.status || 'Success') + '</td>'
+      + '<td class="tbl-actions">' + statusStr + '</td>'
+      + '</tr>';
+  });
 
   return '<div class="page-title">💰 IMS: Penggajian (Live)</div>'
     + '<div class="card">'
     + '<div class="card-header"><h2>Data Gaji dari IMS</h2></div>'
-    + '<div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Periode</th><th>Gapok</th><th>Tunj</th><th>Insentif</th><th>Reimb</th><th>Pot</th><th>THP</th><th>Status</th><th>Aksi</th></tr></thead><tbody>' + (rows || '<tr><td colspan="10" class="text-center">Memuat data payroll...</td></tr>') + '</tbody></table></div>'
+    + '<div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Periode</th><th>Gapok</th><th>Tunj</th><th>Insentif</th><th>Reimb</th><th>Pot</th><th>THP</th><th>Status</th><th>Aksi</th></tr></thead><tbody>' + (rows || '<tr><td colspan="10" class="text-center">Tidak ada data payroll ditemukan</td></tr>') + '</tbody></table></div>'
     + '</div>';
 }
 
 async function renderIMSTaxBPJS() {
   const payroll = await KDB.getAllIMS('payroll');
   const month = today().substring(0,7);
-  const current = payroll.filter(p => p.periode === month);
+  const current = payroll.filter(function(p) { return p.periode === month; });
   
+  let rows = '';
+  current.forEach(function(p) {
+    rows += '<tr><td>' + p.karyawan + '</td><td>' + fmtRp(p.gajiPokok) + '</td><td>' + fmtRp(p.bpjsKes) + '</td><td>' + fmtRp(p.bpjsTk) + '</td><td>' + fmtRp(p.pph21) + '</td><td class="text-red">' + fmtRp(parseFloat(p.potongan)||0) + '</td></tr>';
+  });
+
   return '<div class="page-title">🧮 IMS: Ringkasan Tax & BPJS (Live)</div>'
     + '<div class="card">'
     + '<div class="card-header"><h2>Potongan Pajak & BPJS Bulan Ini</h2></div>'
     + '<div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Gapok</th><th>BPJS Kes</th><th>BPJS TK</th><th>PPH 21</th><th>Total Potongan</th></tr></thead><tbody>'
-    + current.map(p => `<tr><td>${p.karyawan}</td><td>${fmtRp(p.gajiPokok)}</td><td>${fmtRp(p.bpjsKes)}</td><td>${fmtRp(p.bpjsTk)}</td><td>${fmtRp(p.pph21)}</td><td class="text-red">${fmtRp(parseFloat(p.potongan)||0)}</td></tr>`).join('')
+    + (rows || '<tr><td colspan="6" class="text-center">Tidak ada data untuk periode ini</td></tr>')
     + '</tbody></table></div></div>';
 }
 
 async function renderIMSInsentif() {
   const list = await KDB.getAllIMS('insentif');
-  const rows = list.map(i => `
-    <tr>
-      <td class="fw-bold">${i.karyawan}</td>
-      <td><span class="chip">${i.jenis}</span></td>
-      <td>${i.basis || '-'}</td>
-      <td class="fw-bold text-green">${fmtRp(i.nominal)}</td>
-      <td>${i.periode}</td>
-      <td class="tbl-actions">
-        ${i.isSynced ? '<span class="badge badge-success">✓ Terintegrasi</span>' : `<button class="btn btn-xs btn-info" onclick="syncIMSToFinance('insentif', '${i.id}')">Sinkronisasi</button>`}
-      </td>
-    </tr>
-  `).join('');
+  let rows = '';
+  list.forEach(function(i) {
+    const statusStr = i.isSynced ? '<span class="badge badge-success">✓ Terintegrasi</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'insentif\', \'' + i.id + '\')">Sinkronisasi</button>';
+    rows += '<tr>'
+      + '<td class="fw-bold">' + i.karyawan + '</td>'
+      + '<td><span class="chip">' + i.jenis + '</span></td>'
+      + '<td>' + (i.basis || '-') + '</td>'
+      + '<td class="fw-bold text-green">' + fmtRp(i.nominal) + '</td>'
+      + '<td>' + i.periode + '</td>'
+      + '<td class="tbl-actions">' + statusStr + '</td>'
+      + '</tr>';
+  });
 
   return '<div class="page-title">🏆 IMS: Insentif Kinerja (Live)</div>'
     + '<div class="card"><div class="card-header"><h2>Daftar Insentif Terkini</h2></div>'
@@ -17001,18 +17014,18 @@ async function renderIMSInsentif() {
 
 async function renderIMSReimbursement() {
   const list = await KDB.getAllIMS('reimbursement');
-  const rows = list.map(r => `
-    <tr>
-      <td class="fw-bold">${r.karyawan}</td>
-      <td>${r.kategori}</td>
-      <td>${fmtDate(r.tanggal)}</td>
-      <td class="fw-bold">${fmtRp(r.jumlah)}</td>
-      <td>${statusBadge(r.status || 'Approved')}</td>
-      <td class="tbl-actions">
-        ${r.isSynced ? '<span class="badge badge-success">✓ Terintegrasi</span>' : `<button class="btn btn-xs btn-info" onclick="syncIMSToFinance('reimbursement', '${r.id}')">Sinkronisasi</button>`}
-      </td>
-    </tr>
-  `).join('');
+  let rows = '';
+  list.forEach(function(r) {
+    const statusStr = r.isSynced ? '<span class="badge badge-success">✓ Terintegrasi</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'reimbursement\', \'' + r.id + '\')">Sinkronisasi</button>';
+    rows += '<tr>'
+      + '<td class="fw-bold">' + r.karyawan + '</td>'
+      + '<td>' + r.kategori + '</td>'
+      + '<td>' + fmtDate(r.tanggal) + '</td>'
+      + '<td class="fw-bold">' + fmtRp(r.jumlah) + '</td>'
+      + '<td>' + statusBadge(r.status || 'Approved') + '</td>'
+      + '<td class="tbl-actions">' + statusStr + '</td>'
+      + '</tr>';
+  });
 
   return '<div class="page-title">📄 IMS: Reimbursement (Live)</div>'
     + '<div class="card"><div class="card-header"><h2>Daftar Klaim Disetujui</h2></div>'
@@ -17021,45 +17034,44 @@ async function renderIMSReimbursement() {
 
 async function renderIMSKasbonLoan() {
   const list = await KDB.getAllIMS('kasbon');
-  const rows = list.map(k => `
-    <tr>
-      <td class="fw-bold">${k.karyawan}</td>
-      <td>${k.jenis || 'Kasbon'}</td>
-      <td>${fmtRp(k.totalPinjaman)}</td>
-      <td>${fmtRp(k.angsuran)}/bln</td>
-      <td>${k.durasi} bln</td>
-      <td class="fw-bold text-red">${fmtRp(k.sisa)}</td>
-      <td class="tbl-actions">
-        ${k.isSynced ? '<span class="badge badge-success">✓ Terintegrasi</span>' : `<button class="btn btn-xs btn-info" onclick="syncIMSToFinance('kasbon', '${k.id}')">Sinkronisasi</button>`}
-      </td>
-    </tr>
-  `).join('');
+  let rows = '';
+  list.forEach(function(k) {
+    const statusStr = k.isSynced ? '<span class="badge badge-success">✓ Terintegrasi</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'kasbon\', \'' + k.id + '\')">Sinkronisasi</button>';
+    rows += '<tr>'
+      + '<td class="fw-bold">' + k.karyawan + '</td>'
+      + '<td>' + (k.jenis || 'Kasbon') + '</td>'
+      + '<td>' + fmtRp(k.totalPinjaman) + '</td>'
+      + '<td>' + fmtRp(k.angsuran) + '/bln</td>'
+      + '<td>' + k.durasi + ' bln</td>'
+      + '<td class="fw-bold text-red">' + fmtRp(k.sisa) + '</td>'
+      + '<td class="tbl-actions">' + statusStr + '</td>'
+      + '</tr>';
+  });
 
   return '<div class="page-title">💳 IMS: Kasbon & Loan (Live)</div>'
     + '<div class="card">'
     + '<div class="card-header"><h2>Daftar Pinjaman Aktif</h2></div>'
-    + (list.length ? '<div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Tipe</th><th>Total</th><th>Angsuran</th><th>Tenor</th><th>Sisa</th><th>Aksi</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+    + (rows ? '<div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Tipe</th><th>Total</th><th>Angsuran</th><th>Tenor</th><th>Sisa</th><th>Aksi</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
       : '<div class="empty-state"><span class="icon">💳</span>Tidak ada data pinjaman aktif di sistem IMS</div>')
     + '</div>';
 }
 
 async function renderIMSTunjangan() {
   const list = await KDB.getAllIMS('tunjangan');
-  const rows = list.map(t => `
-    <tr>
-      <td class="fw-bold">${t.nama}</td>
-      <td>${t.jenis}</td>
-      <td class="fw-bold text-green">${fmtRp(t.nominal)}</td>
-      <td>${t.penerima || 'Semua'}</td>
-    </tr>
-  `).join('');
+  let rows = '';
+  list.forEach(function(t) {
+    rows += '<tr>'
+      + '<td class="fw-bold">' + t.nama + '</td>'
+      + '<td>' + t.jenis + '</td>'
+      + '<td class="fw-bold text-green">' + fmtRp(t.nominal) + '</td>'
+      + '<td>' + (t.penerima || 'Semua') + '</td>'
+      + '</tr>';
+  });
 
   return '<div class="page-title">🎁 IMS: Tunjangan & Benefit (Live)</div>'
     + '<div class="card"><div class="card-header"><h2>Komponen Tunjangan Perusahaan</h2></div>'
     + '<div class="table-wrap"><table><thead><tr><th>Nama Komponen</th><th>Tipe</th><th>Nominal</th><th>Penerima</th></tr></thead><tbody>' + (rows || '<tr><td colspan="4" class="text-center">Belum ada data tunjangan</td></tr>') + '</tbody></table></div></div>';
 }
-
-// ===== IMS INTEGRATION LOGIC =====
 
 async function syncIMSToFinance(module, recordId) {
   let record;
@@ -17070,28 +17082,28 @@ async function syncIMSToFinance(module, recordId) {
 
   if (module === 'payroll') {
     const list = await KDB.getAllIMS('payroll');
-    record = list.find(x => x.id === recordId);
+    record = list.find(function(x){ return x.id === recordId; });
     category = 'Penggajian';
     nominal = record.thp;
     keterangan = 'Gaji Karyawan: ' + record.karyawan + ' (' + record.periode + ')';
     akunDebit = '5-1000';
   } else if (module === 'insentif') {
     const list = await KDB.getAllIMS('insentif');
-    record = list.find(x => x.id === recordId);
+    record = list.find(function(x){ return x.id === recordId; });
     category = 'Insentif';
     nominal = record.nominal;
     keterangan = 'Insentif ' + record.jenis + ': ' + record.karyawan + ' (' + record.periode + ')';
     akunDebit = '5-1200';
   } else if (module === 'reimbursement') {
     const list = await KDB.getAllIMS('reimbursement');
-    record = list.find(x => x.id === recordId);
+    record = list.find(function(x){ return x.id === recordId; });
     category = 'Reimbursement';
     nominal = record.jumlah;
     keterangan = 'Reimbursement ' + record.kategori + ': ' + record.karyawan;
     akunDebit = '5-2100';
   } else if (module === 'kasbon') {
     const list = await KDB.getAllIMS('kasbon');
-    record = list.find(x => x.id === recordId);
+    record = list.find(function(x){ return x.id === recordId; });
     category = 'Kasbon';
     nominal = record.totalPinjaman;
     keterangan = 'Pencairan Pinjaman: ' + record.karyawan + ' (' + record.jenis + ')';
