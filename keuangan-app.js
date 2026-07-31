@@ -50,7 +50,6 @@ const MENU = [
   ]},
   { group: 'KEUANGAN IMS', icon: '🏢', items: [
     { id: 'ims-menu-keuangan', label: 'Menu Keuangan', icon: '📊', minRole: 'viewer' },
-    { id: 'ims-sub-menu', label: 'Sub Menu Keuangan', icon: '💰', minRole: 'viewer' },
   ]},
   { group: 'Jurnal', icon: '📝', items: [
     { id: 'jurnal-umum',         label: 'Jurnal Umum',         icon: '📓', minRole: 'leader' },
@@ -1161,7 +1160,6 @@ async function renderSection(id) {
       case 'dana-approval':       el.innerHTML = await renderApprovalCenter(); break;
       case 'portal-aset':         el.innerHTML = await renderPortalAset(); break;
       case 'ims-menu-keuangan':   el.innerHTML = await renderIMSSubMenu(); break;
-      case 'ims-sub-menu':        el.innerHTML = await renderIMSSubMenu(); break;
       default: el.innerHTML = '<div class="empty-state"><span class="icon">🚧</span>Halaman dalam pengembangan</div>';
     }
   } catch(e) {
