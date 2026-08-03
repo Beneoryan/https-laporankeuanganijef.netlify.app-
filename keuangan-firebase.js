@@ -194,6 +194,16 @@ const KDB = {
     return _klget('ims_' + col + '_all', []);
   },
 
+  async getIMS(col, id) {
+    if (kfbReady) {
+      try {
+        const snap = await kfs.getDoc(kfs.doc(kdb, col, id));
+        if (snap.exists()) return snap.data();
+      } catch(e) { console.warn(e); }
+    }
+    return _klget('ims_' + col + '_' + id, null);
+  },
+
   // ---- STANDARDIZED COLLECTIONS (Flutter-compatible, no k_ prefix) ----
   async saveTransaction(data) {
     var id = data.id || ('txn_' + Date.now());

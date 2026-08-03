@@ -16883,9 +16883,6 @@ function updateChatMessageList(rawMsgs) {
   container.innerHTML = msgsHtml;
 
   // Scroll ke bawah hanya jika user memang sedang di bawah (atau pesan dari diri sendiri)
-  if (isAtBottom) {
-    container.scrollTop = container.scrollHeight;
-  }
 
 // ===== KEUANGAN IMS MODULE =====
 async function renderIMSSubMenu() {
@@ -17162,8 +17159,9 @@ async function renderIMSVerification() {
   const list = await KDB.getAll('ims_transactions');
   const pending = list.filter(function(x) { return x.status === 'Waiting Verification'; });
   
-  const rows = pending.map(function(t) {
-    return '<tr>'
+  let rows = '';
+  pending.forEach(function(t) {
+    rows += '<tr>'
       + '<td>' + fmtDate(t.tanggal) + '</td>'
       + '<td><span class="chip">' + t.category + '</span></td>'
       + '<td class="fw-bold">' + t.keterangan + '</td>'
@@ -17173,11 +17171,11 @@ async function renderIMSVerification() {
       + '<button class="btn btn-xs btn-success" onclick="approveIMSIntegration(\'' + t.id + '\')">✅ Setujui</button>'
       + '<button class="btn btn-xs btn-danger" onclick="rejectIMSIntegration(\'' + t.id + '\')">❌ Tolak</button>'
       + '</td></tr>';
-  }).join('');
+  });
 
   return '<div class="page-title">🛡️ Verifikasi Integrasi IMS</div>'
     + '<div class="card"><div class="card-header"><h2>Antrian Integrasi Data (' + pending.length + ')</h2></div>'
-    + (pending.length ? '<div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Kategori</th><th>Keterangan</th><th>Nominal</th><th>Pengaju</th><th>Aksi</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+    + (rows ? '<div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Kategori</th><th>Keterangan</th><th>Nominal</th><th>Pengaju</th><th>Aksi</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
       : '<div class="empty-state"><span class="icon">🛡️</span>Tidak ada antrian verifikasi</div>')
     + '</div>';
 }
@@ -17269,4 +17267,3 @@ async function rejectIMSIntegration(id) {
   showAlert('Integrasi ditolak.');
   renderSection('ims-verification');
 }
-
