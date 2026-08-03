@@ -55,6 +55,7 @@ const MENU = [
     { id: 'ims-reimbursement',label: 'Reimbursement',    icon: '📄', minRole: 'viewer' },
     { id: 'ims-kasbon-loan',  label: 'Kasbon & Loan',    icon: '💳', minRole: 'viewer' },
     { id: 'ims-tunjangan',    label: 'Tunjangan',        icon: '🎁', minRole: 'viewer' },
+    { id: 'ims-verification', label: 'Verifikasi Integrasi', icon: '🛡️', minRole: 'admin' },
   ]},
   { group: 'Jurnal', icon: '📝', items: [
     { id: 'jurnal-umum',         label: 'Jurnal Umum',         icon: '📓', minRole: 'leader' },
@@ -626,6 +627,9 @@ function statusBadge(status) {
     'Rejected Layer 1':'badge-danger',
     'Rejected Layer 2':'badge-danger',
     'Rejected Layer 3':'badge-danger',
+    'Waiting Verification': 'badge-warning',
+    'Integrated':      'badge-success',
+    'Rejected':        'badge-danger',
   };
   return '<span class="badge ' + (map[status] || 'badge-neutral') + '">' + (status || '-') + '</span>';
 }
@@ -1170,6 +1174,7 @@ async function renderSection(id) {
       case 'ims-reimbursement':   el.innerHTML = await renderIMSReimbursement(); break;
       case 'ims-kasbon-loan':     el.innerHTML = await renderIMSKasbonLoan(); break;
       case 'ims-tunjangan':       el.innerHTML = await renderIMSTunjangan(); break;
+      case 'ims-verification':    el.innerHTML = await renderIMSVerification(); break;
       default: el.innerHTML = '<div class="empty-state"><span class="icon">🚧</span>Halaman dalam pengembangan</div>';
     }
   } catch(e) {
@@ -16881,8 +16886,6 @@ function updateChatMessageList(rawMsgs) {
   if (isAtBottom) {
     container.scrollTop = container.scrollHeight;
   }
-}
-
 
 // ===== KEUANGAN IMS MODULE =====
 async function renderIMSSubMenu() {
@@ -16935,7 +16938,7 @@ async function renderIMSSubMenu() {
       + '<div class="card">'
       + '<div class="card-header"><h2>Panduan Integrasi Live</h2></div>'
       + '<p style="color: #666; font-size: 0.9rem; line-height:1.6;">'
-      + 'Data di bawah ini ditarik secara <b>Real-time</b> dari aplikasi HR & Legal (IMS). Anda dapat melakukan sinkronisasi untuk membuat Permohonan Dana otomatis di sistem pusat.'
+      + 'Data di bawah ini ditarik secara <b>Real-time</b> dari aplikasi HR & Legal (IMS). Anda dapat mengajukan sinkronisasi yang nantinya akan diverifikasi oleh Admin Keuangan.'
       + '</p>'
       + '</div>';
     showLoading(false);
@@ -16952,7 +16955,7 @@ async function renderIMSPayroll() {
   const list = await KDB.getAllIMS('hrd_penggajian');
   let rows = '';
   list.slice().sort(function(a,b){ return (b.periode||'').localeCompare(a.periode||''); }).forEach(function(p) {
-    const statusStr = p.isSynced ? '<span class="badge badge-success">✓ Terintegrasi</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'payroll\', \'' + p.id + '\')">Sinkronisasi</button>';
+    const statusStr = p.isSynced ? '<span class="badge badge-success">✓ Diajukan</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'payroll\', \'' + p.id + '\')">Sinkronisasi</button>';
     rows += '<tr>'
       + '<td class="fw-bold">' + (p.nama||'-') + '</td>'
       + '<td>' + (p.periode||'-') + '</td>'
@@ -16996,7 +16999,7 @@ async function renderIMSInsentif() {
   const list = await KDB.getAllIMS('hrd_insentif');
   let rows = '';
   list.forEach(function(i) {
-    const statusStr = i.isSynced ? '<span class="badge badge-success">✓ Terintegrasi</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'insentif\', \'' + i.id + '\')">Sinkronisasi</button>';
+    const statusStr = i.isSynced ? '<span class="badge badge-success">✓ Diajukan</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'insentif\', \'' + i.id + '\')">Sinkronisasi</button>';
     const basis = i.jenis === 'KPI' ? 'KPI ' + (i.kpiScore||0) : (i.jumlahSiswa||0) + ' Siswa';
     rows += '<tr>'
       + '<td class="fw-bold">' + (i.nama||'-') + '</td>'
@@ -17017,7 +17020,7 @@ async function renderIMSReimbursement() {
   const list = await KDB.getAllIMS('hrd_reimbursement');
   let rows = '';
   list.forEach(function(r) {
-    const statusStr = r.isSynced ? '<span class="badge badge-success">✓ Terintegrasi</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'reimbursement\', \'' + r.id + '\')">Sinkronisasi</button>';
+    const statusStr = r.isSynced ? '<span class="badge badge-success">✓ Diajukan</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'reimbursement\', \'' + r.id + '\')">Sinkronisasi</button>';
     rows += '<tr>'
       + '<td class="fw-bold">' + (r.nama||'-') + '</td>'
       + '<td>' + (r.kategori||'-') + '</td>'
@@ -17037,7 +17040,7 @@ async function renderIMSKasbonLoan() {
   const list = await KDB.getAllIMS('hrd_kasbon');
   let rows = '';
   list.forEach(function(k) {
-    const statusStr = k.isSynced ? '<span class="badge badge-success">✓ Terintegrasi</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'kasbon\', \'' + k.id + '\')">Sinkronisasi</button>';
+    const statusStr = k.isSynced ? '<span class="badge badge-success">✓ Diajukan</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'kasbon\', \'' + k.id + '\')">Sinkronisasi</button>';
     const total = k.jumlah || 0;
     const cicilan = k.cicilan || 1;
     const angsuran = Math.ceil(total / cicilan);
@@ -17078,6 +17081,8 @@ async function renderIMSTunjangan() {
     + '<div class="table-wrap"><table><thead><tr><th>Nama Komponen</th><th>Tipe</th><th>Nominal</th><th>Penerima</th></tr></thead><tbody>' + (rows || '<tr><td colspan="4" class="text-center">Belum ada data tunjangan</td></tr>') + '</tbody></table></div></div>';
 }
 
+// ===== IMS INTEGRATION & VERIFICATION LOGIC =====
+
 async function syncIMSToFinance(module, recordId) {
   let record;
   let category = '';
@@ -17089,7 +17094,7 @@ async function syncIMSToFinance(module, recordId) {
     const list = await KDB.getAllIMS('hrd_penggajian');
     record = list.find(function(x){ return x.id === recordId; });
     category = 'Penggajian';
-    nominal = record.totalBersih || record.thp || 0;
+    nominal = record.totalBersih || 0;
     keterangan = 'Gaji Karyawan: ' + record.nama + ' (' + record.periode + ')';
     akunDebit = '5-1000';
   } else if (module === 'insentif') {
@@ -17116,59 +17121,152 @@ async function syncIMSToFinance(module, recordId) {
   }
 
   if (!record) return showAlert('Record tidak ditemukan!', 'danger');
-  if (record.isSynced) return showAlert('Record sudah pernah disinkronisasi!', 'warning');
+  if (record.isSynced) return showAlert('Sudah pernah diajukan sinkronisasi!', 'warning');
 
-  if (!confirm('Integrasikan data ini ke Laporan Keuangan?')) return;
+  if (!confirm('Ajukan data ini untuk diverifikasi Admin Keuangan?')) return;
 
+  showLoading(true);
+  const imsTransId = genId('IMSQ');
+
+  const queueData = {
+    id: imsTransId,
+    type: 'permohonan',
+    category: category,
+    tanggal: today(),
+    nominal: nominal,
+    keterangan: keterangan,
+    module: module,
+    recordId: recordId,
+    status: 'Waiting Verification',
+    akunDebit: akunDebit,
+    requestedBy: KU.username,
+    createdAt: new Date().toISOString()
+  };
+
+  await KDB.save('ims_transactions', imsTransId, queueData);
+  
+  // Mark source record as "Synced" (meaning requested)
+  record.isSynced = true;
+  record.financeQueueId = imsTransId;
+  const colName = module === 'payroll' ? 'hrd_penggajian' : 'hrd_' + module;
+  await KDB.saveIMS(colName, record.id, record);
+
+  kirimNotifikasi('🛡️ Verifikasi IMS Baru', KU.nama + ' mengajukan integrasi data ' + category + ' (' + fmtRp(nominal) + ')', '');
+  
+  showLoading(false);
+  showAlert('Permintaan sinkronisasi diajukan! Menunggu verifikasi Admin.');
+  navigate('ims-' + module);
+}
+
+async function renderIMSVerification() {
+  const list = await KDB.getAll('ims_transactions');
+  const pending = list.filter(function(x) { return x.status === 'Waiting Verification'; });
+  
+  const rows = pending.map(function(t) {
+    return '<tr>'
+      + '<td>' + fmtDate(t.tanggal) + '</td>'
+      + '<td><span class="chip">' + t.category + '</span></td>'
+      + '<td class="fw-bold">' + t.keterangan + '</td>'
+      + '<td class="fw-bold text-blue">' + fmtRp(t.nominal) + '</td>'
+      + '<td>' + t.requestedBy + '</td>'
+      + '<td class="tbl-actions">'
+      + '<button class="btn btn-xs btn-success" onclick="approveIMSIntegration(\'' + t.id + '\')">✅ Setujui</button>'
+      + '<button class="btn btn-xs btn-danger" onclick="rejectIMSIntegration(\'' + t.id + '\')">❌ Tolak</button>'
+      + '</td></tr>';
+  }).join('');
+
+  return '<div class="page-title">🛡️ Verifikasi Integrasi IMS</div>'
+    + '<div class="card"><div class="card-header"><h2>Antrian Integrasi Data (' + pending.length + ')</h2></div>'
+    + (pending.length ? '<div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Kategori</th><th>Keterangan</th><th>Nominal</th><th>Pengaju</th><th>Aksi</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<div class="empty-state"><span class="icon">🛡️</span>Tidak ada antrian verifikasi</div>')
+    + '</div>';
+}
+
+async function approveIMSIntegration(id) {
+  const list = await KDB.getAll('ims_transactions');
+  const t = list.find(function(x) { return x.id === id; });
+  if (!t) return;
+  
+  if (!confirm('Setujui integrasi ini? Data akan otomatis menjadi Permohonan Dana.')) return;
+  
   showLoading(true);
   const pdId = genId('PD');
   const approvers = await getApprovers();
-
+  
   const pdData = {
     id: pdId,
     tipe: 'permohonan',
-    pemohon: KU.username,
-    namaPemohon: '[IMS] ' + (record.nama || KU.nama),
-    namaPIC: KU.nama,
+    pemohon: t.requestedBy,
+    namaPemohon: '[IMS] ' + t.requestedBy,
+    namaPIC: t.requestedBy,
     namaLeader: 'Irsan',
-    noPOInvoice: record.id,
-    nominal: nominal,
-    jatuhTempo: today(),
+    noPOInvoice: t.recordId,
+    nominal: t.nominal,
+    jatuhTempo: t.tanggal,
     tipeTransaksi: 'Transfer',
     namaBank: '-',
     noRekening: '-',
     namaRekening: '-',
-    keterangan: keterangan,
+    keterangan: t.keterangan,
     buktiDokumen: '',
-    akunDebit: akunDebit,
+    akunDebit: t.akunDebit || '5-2200',
     akunKredit: '1-1100',
-    tanggal: today(),
+    tanggal: t.tanggal,
     status: STATUS.PENDING_L1,
-    approvalLog: [{ layer: 0, action: 'submit', by: KU.username, nama: KU.nama, at: new Date().toISOString(), catatan: 'Otomatis dibuat dari Portal KEUANGAN IMS' }],
+    approvalLog: [{ layer: 0, action: 'submit', by: KU.username, nama: KU.nama, at: new Date().toISOString(), catatan: 'Otomatis dibuat dari Portal KEUANGAN IMS (Verified)' }],
     approvers: approvers,
-    createdBy: KU.username,
+    createdBy: t.requestedBy,
     createdAt: new Date().toISOString(),
     sumber: 'IMS'
   };
 
   await KDB.save('permohonan', pdId, pdData);
   
-  // Mark IMS record as synced in the correct HRD collection
-  record.isSynced = true;
-  record.financeId = pdId;
-  const colName = module === 'payroll' ? 'hrd_penggajian' : 'hrd_' + module;
-  await KDB.saveIMS(colName, record.id, record);
+  // Update queue status
+  t.status = 'Integrated';
+  t.verifiedBy = KU.username;
+  t.verifiedAt = new Date().toISOString();
+  t.financeId = pdId;
+  await KDB.save('ims_transactions', id, t);
+  
+  // Update source record
+  const colName = t.module === 'payroll' ? 'hrd_penggajian' : 'hrd_' + t.module;
+  const sourceRecord = await KDB.getIMS(colName, t.recordId);
+  if (sourceRecord) {
+    sourceRecord.financeId = pdId;
+    await KDB.saveIMS(colName, sourceRecord.id, sourceRecord);
+  }
 
-  const imsId = genId('IMS');
-  await KDB.save('ims_transactions', imsId, {
-     id: imsId, type: 'permohonan', category: category, tanggal: today(), nominal: nominal,
-     keterangan: keterangan, refId: pdId, status: 'Integrated', createdAt: new Date().toISOString()
-  });
+  showLoading(false);
+  showAlert('Integrasi disetujui! Permohonan dana #' + pdId + ' telah dibuat.');
+  renderSection('ims-verification');
+}
 
-  kirimNotifikasi('📤 Permohonan IMS Baru', (KU.nama) + ' mengajukan ' + fmtRp(nominal) + ' via IMS — ' + category, '');
+async function rejectIMSIntegration(id) {
+  const list = await KDB.getAll('ims_transactions');
+  const t = list.find(function(x) { return x.id === id; });
+  if (!t) return;
+  
+  const reason = prompt('Alasan penolakan:');
+  if (reason === null) return;
+  
+  showLoading(true);
+  t.status = 'Rejected';
+  t.rejectReason = reason;
+  t.rejectedBy = KU.username;
+  await KDB.save('ims_transactions', id, t);
+  
+  // Unlock source record
+  const colName = t.module === 'payroll' ? 'hrd_penggajian' : 'hrd_' + t.module;
+  const sourceRecord = await KDB.getIMS(colName, t.recordId);
+  if (sourceRecord) {
+    delete sourceRecord.isSynced;
+    delete sourceRecord.financeQueueId;
+    await KDB.saveIMS(colName, sourceRecord.id, sourceRecord);
+  }
   
   showLoading(false);
-  showAlert('Integrasi berhasil!');
-  navigate('ims-' + module);
+  showAlert('Integrasi ditolak.');
+  renderSection('ims-verification');
 }
 
