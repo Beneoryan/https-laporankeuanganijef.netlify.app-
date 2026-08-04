@@ -17257,3 +17257,4 @@ async function rejectIMSIntegration(id) {
   showAlert('Integrasi ditolak.');
   renderSection('ims-verification');
 }
+}
