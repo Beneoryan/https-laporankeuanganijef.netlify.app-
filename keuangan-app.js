@@ -669,8 +669,10 @@ window.addEventListener('load', async function() {
   try {
     const p = _klget('ksetting_perusahaan', {});
     if (p && p.logoData) {
-      const logoIcon = document.querySelector('.login-logo .logo-icon');
-      if (logoIcon) logoIcon.innerHTML = '<img src="' + p.logoData + '" style="max-height:80px; max-width:200px; border-radius:12px">';
+      const loginLogoContainer = document.getElementById('login-logo-container');
+      if (loginLogoContainer) {
+        loginLogoContainer.innerHTML = '<img src="' + p.logoData + '" style="max-height:100%; max-width:100%; object-fit:contain; border-radius:12px">';
+      }
     }
   } catch(e) {}
 
@@ -885,9 +887,9 @@ function buildApp() {
     if (p.logoData) {
       const appLogoContainer = document.getElementById('app-logo-container');
       const loginLogoContainer = document.getElementById('login-logo-container');
-      const logoImg = '<img src="' + p.logoData + '" style="max-height:100%;max-width:100%;object-fit:contain">';
+      const logoImg = '<img src="' + p.logoData + '" style="max-height:100%;max-width:100%;object-fit:contain;border-radius:4px">';
       if (appLogoContainer) appLogoContainer.innerHTML = logoImg;
-      if (loginLogoContainer) loginLogoContainer.innerHTML = logoImg;
+      if (loginLogoContainer) loginLogoContainer.innerHTML = '<img src="' + p.logoData + '" style="max-height:100%;max-width:100%;object-fit:contain;border-radius:12px">';
     }
   });
 

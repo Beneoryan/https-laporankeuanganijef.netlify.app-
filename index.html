@@ -106,7 +106,7 @@ body{font-family:'Inter',sans-serif;color:#333;font-size:14px;overflow-y: auto !
 }
 .login-box{background:white;border-radius:16px;padding:36px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.55);margin:16px;border:1px solid rgba(255,255,255,0.08)}
 .login-logo{text-align:center;margin-bottom:20px}
-.login-logo .logo-icon{font-size:3rem;display:block}
+.login-logo img{display:block;margin:0 auto}
 .login-logo h1{color:var(--ijef-primary);font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;letter-spacing:-0.02em;font-size:1.45rem;margin-top:8px}
 .login-logo p{color:#64748b;font-size:0.85rem;margin-top:4px;font-weight:500}
 .form-group{margin-bottom:14px}
@@ -1662,34 +1662,8 @@ input:focus, select:focus, textarea:focus {
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <div id="login-logo-container" style="width:100px;height:100px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;">
-        <svg id="login-logo-default" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:100%; display:block;">
-          <!-- Black outer ring -->
-          <path d="M 18,50 A 32,32 0 1,1 82,50 A 32,32 0 1,1 18,50 M 15,50 A 35,35 0 1,0 85,50 A 35,35 0 1,0 15,50" fill="#111115" />
-          <!-- Left red crescent sweep -->
-          <path d="M 23,28 C 12,38 12,62 23,72 C 16,62 16,38 23,28" fill="#a30000" />
-          <!-- "I" and its red calligraphic leaf dot -->
-          <path d="M 33,38 C 33,52 33,62 33,70" stroke="#111115" stroke-width="4.5" stroke-linecap="round" fill="none" />
-          <path d="M 33,35 C 33,35 31,27 34,25 C 37,28 35,33 33,35" fill="#a30000" />
-          <!-- "J" sweeping sweep -->
-          <path d="M 43,38 C 43,58 40,78 33,81 C 27,84 21,78 26,73" stroke="#111115" stroke-width="4" stroke-linecap="round" fill="none" />
-          <!-- "E" with center red dot -->
-          <path d="M 48,37 C 54,37 60,40 60,43" stroke="#111115" stroke-width="4.2" stroke-linecap="round" fill="none" />
-          <circle cx="55" cy="50" r="4.5" fill="#a30000" />
-          <path d="M 48,63 C 54,63 60,60 60,57" stroke="#111115" stroke-width="4.2" stroke-linecap="round" fill="none" />
-          <!-- "F" with sweeping red top horn and right swoosh -->
-          <path d="M 68,39 C 68,52 66,70 61,74" stroke="#111115" stroke-width="4.5" stroke-linecap="round" fill="none" />
-          <!-- Red wing/horn on F top right -->
-          <path d="M 68,39 C 78,38 88,29 93,31 C 88,43 78,45 68,45 Z" fill="url(#ijefRedGradLogin)" />
-          <!-- Small red swoosh on F middle right -->
-          <path d="M 68,50 C 73,50 82,53 82,48 C 80,56 73,56 68,56 Z" fill="#a30000" />
-          <defs>
-            <linearGradient id="ijefRedGradLogin" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#800000" />
-              <stop offset="100%" stop-color="#a30000" />
-            </linearGradient>
-          </defs>
-        </svg>
+      <div id="login-logo-container" style="width:120px;height:120px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;">
+        <img src="icons/icon-512x512.png" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:12px;" alt="Logo">
       </div>
       <h1>Sistem Keuangan</h1>
       <p>IJEF Corp — Financial Management</p>
@@ -1721,33 +1695,7 @@ input:focus, select:focus, textarea:focus {
 
       <div onclick="navigate('lap-dashboard')" style="display:flex;align-items:center;gap:8px;cursor:pointer" title="Kembali ke Dashboard">
         <div id="app-logo-container" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;">
-          <svg id="app-logo-default" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:100%; display:block;">
-            <!-- White outer ring -->
-            <path d="M 18,50 A 32,32 0 1,1 82,50 A 32,32 0 1,1 18,50 M 15,50 A 35,35 0 1,0 85,50 A 35,35 0 1,0 15,50" fill="#ffffff" />
-            <!-- Left red crescent sweep -->
-            <path d="M 23,28 C 12,38 12,62 23,72 C 16,62 16,38 23,28" fill="#a30000" />
-            <!-- "I" and its red calligraphic leaf dot -->
-            <path d="M 33,38 C 33,52 33,62 33,70" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" fill="none" />
-            <path d="M 33,35 C 33,35 31,27 34,25 C 37,28 35,33 33,35" fill="#a30000" />
-            <!-- "J" sweeping sweep -->
-            <path d="M 43,38 C 43,58 40,78 33,81 C 27,84 21,78 26,73" stroke="#ffffff" stroke-width="4" stroke-linecap="round" fill="none" />
-            <!-- "E" with center red dot -->
-            <path d="M 48,37 C 54,37 60,40 60,43" stroke="#ffffff" stroke-width="4.2" stroke-linecap="round" fill="none" />
-            <circle cx="55" cy="50" r="4.5" fill="#a30000" />
-            <path d="M 48,63 C 54,63 60,60 60,57" stroke="#ffffff" stroke-width="4.2" stroke-linecap="round" fill="none" />
-            <!-- "F" with sweeping red top horn and right swoosh -->
-            <path d="M 68,39 C 68,52 66,70 61,74" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" fill="none" />
-            <!-- Red wing/horn on F top right -->
-            <path d="M 68,39 C 78,38 88,29 93,31 C 88,43 78,45 68,45 Z" fill="url(#ijefRedGradHeader)" />
-            <!-- Small red swoosh on F middle right -->
-            <path d="M 68,50 C 73,50 82,53 82,48 C 80,56 73,56 68,56 Z" fill="#a30000" />
-            <defs>
-              <linearGradient id="ijefRedGradHeader" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#ff3333" />
-                <stop offset="100%" stop-color="#a30000" />
-              </linearGradient>
-            </defs>
-          </svg>
+          <img src="icons/icon-192x192.png" style="max-width:100%; max-height:100%; object-fit:contain;" alt="Logo">
         </div>
         <h1>Sistem Keuangan IJEF Corp</h1>
       </div>
@@ -1809,7 +1757,7 @@ input:focus, select:focus, textarea:focus {
 <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
 
 <script src="keuangan-firebase.js"></script>
-<script src="keuangan-app.js?v=20260804-v3-chatfix"></script>
+<script src="keuangan-app.js?v=20260804-v4-logofix"></script>
 <script>
 window.addEventListener('load', function() {
   console.log('Window load event triggered');
