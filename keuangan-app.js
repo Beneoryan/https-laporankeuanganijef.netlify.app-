@@ -16515,16 +16515,6 @@ function handleChatFileChange(input) {
   }
 }
 
-function handleChatPaste(event) {
-  var items = (event.clipboardData || event.originalEvent.clipboardData).items;
-  for (var i = 0; i < items.length; i++) {
-    if (items[i].kind === 'file') {
-      var blob = items[i].getAsFile();
-      processChatFile(blob);
-    }
-  }
-}
-
 function processChatFile(file) {
   if (file.size > 800000) {
     showAlert('File terlalu besar! Maksimal 800KB untuk menjaga performa chat.', 'danger');
@@ -17266,4 +17256,5 @@ async function rejectIMSIntegration(id) {
   showLoading(false);
   showAlert('Integrasi ditolak.');
   renderSection('ims-verification');
+}
 }
