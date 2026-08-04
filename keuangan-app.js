@@ -16575,9 +16575,10 @@ async function sendPortalChatMessage(overrideText, fileObj) {
   await KDB.save('chat_messages', msgId, msg);
   showLoading(false);
 
-  // Re-render local view
+  // Partial update handles the UI now via onKDBUpdate
   if (currentSection === 'portal-komunikasi') {
-    navigate('portal-komunikasi');
+    // We don't call navigate here anymore to prevent clearing input and jumpy UI
+    // The container will be updated by KDB's real-time listener (onKDBUpdate)
   }
 }
 
@@ -16646,9 +16647,13 @@ async function sendDashChatMessage() {
   input.value = '';
   await KDB.save('chat_messages', msgId, msg);
   
-  // Re-render dashboard
+  // Dashboard widget will update via window.onKDBUpdate if needed,
+  // or we can refresh just the widget partially.
   if (currentSection === 'lap-dashboard') {
-    navigate('lap-dashboard');
+    renderPortalKomunikasiWidget().then(function(html) {
+       var widget = document.getElementById('dash-chat-widget-container');
+       if (widget) widget.innerHTML = html;
+    });
   }
 }
 
@@ -16821,6 +16826,13 @@ window.onKDBUpdate = function(col, items) {
     if (currentSection === 'portal-komunikasi') {
       updateChatMessageList(items);
     }
+    // Jika sedang di dashboard, update widget chat
+    if (currentSection === 'lap-dashboard') {
+      renderPortalKomunikasiWidget().then(function(html) {
+        var widget = document.getElementById('dash-chat-widget-container');
+        if (widget) widget.innerHTML = html;
+      });
+    }
   } else if (col === 'notifikasi') {
     showNotifToast(items);
   }
@@ -16882,7 +16894,11 @@ function updateChatMessageList(rawMsgs) {
 
   container.innerHTML = msgsHtml;
 
-  // Scroll ke bawah hanya jika user memang sedang di bawah (atau pesan dari diri sendiri)
+  // Scroll ke bawah hanya jika user memang sedang di bawah (atau ada pesan baru dan itu dari saya)
+  if (isAtBottom) {
+    container.scrollTop = container.scrollHeight;
+  }
+}
 
 // ===== KEUANGAN IMS MODULE =====
 async function renderIMSSubMenu() {

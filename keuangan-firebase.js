@@ -380,10 +380,20 @@ function startRealtimeSync() {
     }
     
     if (typeof currentSection !== 'undefined' && currentSection && typeof navigate === 'function') {
+      // NEVER auto-refresh the whole section for chat messages
       if (col === 'chat_messages') return;
 
+      // If we are in the Communication Portal, we only want partial updates (handled in onKDBUpdate)
+      // Auto-navigating would clear the user's current typed message.
+      if (currentSection === 'portal-komunikasi') return;
+
+      // Don't auto-refresh if user is currently typing in any input or textarea
+      var activeEl = document.activeElement;
+      var isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+
       var modalOverlay = document.getElementById('modal-overlay');
-      if (modalOverlay && modalOverlay.classList.contains('open')) {
+      if (isTyping || (modalOverlay && modalOverlay.classList.contains('open'))) {
+        // Just flag it as updated so it can be refreshed later (e.g. after closing modal)
         window._kDataUpdated = true;
       } else {
         navigate(currentSection);
