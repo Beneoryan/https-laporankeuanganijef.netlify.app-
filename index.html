@@ -1121,7 +1121,8 @@ input:focus, select:focus, textarea:focus {
 /* Chat Portal Styles */
 .chat-container {
   display: flex;
-  height: 550px;
+  height: calc(100vh - 180px);
+  min-height: 500px;
   background: white;
   border-radius: 16px;
   box-shadow: 0 4px 25px rgba(0,0,0,0.05);
@@ -1218,11 +1219,11 @@ input:focus, select:focus, textarea:focus {
   align-items: center;
 }
 .chat-input-area {
-  padding: 14px 16px;
+  padding: 16px 20px;
   background: white;
   border-top: 1px solid #e2e8f0;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
 }
 
@@ -1757,7 +1758,7 @@ input:focus, select:focus, textarea:focus {
 <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
 
 <script src="keuangan-firebase.js"></script>
-<script src="keuangan-app.js?v=20260804-v4-logofix"></script>
+<script src="keuangan-app.js?v=20260804-v5-chatfix2"></script>
 <script>
 window.addEventListener('load', function() {
   console.log('Window load event triggered');

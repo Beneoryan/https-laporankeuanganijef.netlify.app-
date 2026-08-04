@@ -16545,7 +16545,7 @@ async function sendPortalChatMessage(overrideText, fileObj) {
 
   if (!txt && !fileObj) return;
 
-  showLoading(true);
+  // Don't show global loading overlay for chat (keeps UI interactive)
   var msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
   var msg = {
     id: msgId,
@@ -16562,16 +16562,18 @@ async function sendPortalChatMessage(overrideText, fileObj) {
     msg.fileType = fileObj.type;
   }
 
+  // Clear input immediately for better UX
   if (input && overrideText === undefined) input.value = '';
 
   await KDB.save('chat_messages', msgId, msg);
-  showLoading(false);
 
-  // Partial update handles the UI now via onKDBUpdate
-  if (currentSection === 'portal-komunikasi') {
-    // We don't call navigate here anymore to prevent clearing input and jumpy UI
-    // The container will be updated by KDB's real-time listener (onKDBUpdate)
-  }
+  // Manually trigger a UI update so the user sees their message instantly
+  // instead of waiting for the Firestore snapshot (which has a 3s self-ignore window)
+  KDB.getAll('chat_messages').then(function(msgs) {
+    if (currentSection === 'portal-komunikasi') {
+      updateChatMessageList(msgs);
+    }
+  });
 }
 
 // ── PORTAL KOMUNIKASI WIDGET FOR DASHBOARD ──────────────────────────────────────────
