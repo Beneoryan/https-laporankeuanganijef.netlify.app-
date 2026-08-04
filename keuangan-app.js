@@ -16657,7 +16657,7 @@ function showChatToastNotification(messages) {
   if (!messages || messages.length === 0) return;
 
   // Sort descending to get latest
-  const sorted = messages.sort((a,b) => (b.timestamp||'').localeCompare(a.timestamp||''));
+  const sorted = messages.sort((a,b) => (a.timestamp||'').localeCompare(b.timestamp||''));
   const latest = sorted[0];
 
   if (_lastProcessedChatId === latest.id) return;
@@ -16666,6 +16666,20 @@ function showChatToastNotification(messages) {
   // Don't show toast if it is our own message
   if (latest.sender === KU.username) return;
 
+  // 1. Browser Push Notification (Native)
+  if (window.Notification && Notification.permission === 'granted') {
+    try {
+      var n = new Notification('💬 Pesan Baru: ' + (latest.senderName || latest.sender), {
+        body: latest.text || (latest.fileData ? '[Lampiran File]' : ''),
+        icon: '/icons/icon-192x192.png',
+        tag: 'chat_' + latest.sender,
+        renotify: true
+      });
+      n.onclick = function() { window.focus(); navigate('portal-komunikasi'); };
+    } catch(e) { console.warn('Native chat notif error:', e); }
+  }
+
+  // 2. In-app Toast UI
   // Increment unread count
   var count = parseInt(_klget('k_unread_chat_count', '0')) || 0;
   count++;
@@ -16790,6 +16804,19 @@ function showNotifToast(notifikasi) {
   _lastProcessedNotifId = latest.id;
   if (KU && latest.createdBy === KU.username) return;
 
+  // 1. Browser Push Notification (Native)
+  if (window.Notification && Notification.permission === 'granted') {
+    try {
+      var n = new Notification('🔔 ' + (latest.judul || 'Notifikasi Baru'), {
+        body: latest.pesan || '',
+        icon: '/icons/icon-192x192.png',
+        tag: 'notif_' + latest.id
+      });
+      n.onclick = function() { window.focus(); };
+    } catch(e) { console.warn('Native notif error:', e); }
+  }
+
+  // 2. In-app Alert UI
   playNotificationSound();
   showAlert('🔔 ' + (latest.judul || 'Notifikasi') + ': ' + (latest.pesan || ''), 'info', 5000);
   updateNotifBadge();
