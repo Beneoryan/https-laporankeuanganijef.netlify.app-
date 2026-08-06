@@ -116,39 +116,59 @@ const KDB = {
     if (kfbReady) {
       try {
         const snap = await kfs.getDocs(kfs.collection(kdb, 'k_' + col));
-        var items = snap.docs.map(d => d.data());
-        // Merge locally-dirty items that Firebase may not have synced yet
+        var items = snap.docs.map(d => {
+          const item = d.data();
+          if (!item.id) item.id = d.id;
+          return item;
+        });
+
         var now = Date.now();
-        // Collect dirty IDs from in-memory tracking
+        // Collect dirty IDs
         var dirtyIdSet = {};
         if (this._recentSaves[col]) {
           Object.keys(this._recentSaves[col]).forEach(function(id) { dirtyIdSet[id] = true; });
         }
-        // Also scan localStorage for dirty keys to handle page reload scenario
         var dirtyPrefix = 'k_' + col + '_dirty_';
+        var deletedPrefix = 'k_' + col + '_deleted_';
+        var deletedIdSet = {};
+
         for (var i = 0; i < localStorage.length; i++) {
           var lsKey = localStorage.key(i);
-          if (lsKey && lsKey.indexOf(dirtyPrefix) === 0) {
-            var dirtyId = lsKey.substring(dirtyPrefix.length);
-            dirtyIdSet[dirtyId] = true;
+          if (!lsKey) continue;
+          if (lsKey.indexOf(dirtyPrefix) === 0) {
+            dirtyIdSet[lsKey.substring(dirtyPrefix.length)] = true;
+          } else if (lsKey.indexOf(deletedPrefix) === 0) {
+            deletedIdSet[lsKey.substring(deletedPrefix.length)] = true;
           }
         }
+
+        // Apply dirty saves
         Object.keys(dirtyIdSet).forEach(function(dirtyId) {
           var dirtyTime = _klget('k_' + col + '_dirty_' + dirtyId, 0);
           if (dirtyTime && (now - dirtyTime) < 10000) {
-            // Use local version for recently-saved items (within 10 seconds)
             var localItem = _klget('k_' + col + '_' + dirtyId, null);
             if (localItem) {
               var idx = items.findIndex(function(x) { return x.id === dirtyId || x._id === dirtyId; });
               if (idx >= 0) { items[idx] = localItem; } else { items.push(localItem); }
             }
           } else {
-            // Dirty flag is old, clear it
             localStorage.removeItem('k_' + col + '_dirty_' + dirtyId);
-            if (KDB._recentSaves[col]) delete KDB._recentSaves[col][dirtyId];
           }
         });
+
+        // Apply dirty deletes (Ghost Fix)
+        Object.keys(deletedIdSet).forEach(function(delId) {
+          var delTime = _klget('k_' + col + '_deleted_' + delId, 0);
+          if (delTime && (now - delTime) < 15000) {
+            items = items.filter(function(x) { return x.id !== delId && x._id !== delId; });
+          } else {
+            localStorage.removeItem('k_' + col + '_deleted_' + delId);
+          }
+        });
+
         _klset('k_' + col + '_all', items);
+        window._kFreshDataLoaded = window._kFreshDataLoaded || {};
+        window._kFreshDataLoaded[col] = true;
         return items;
       } catch(e) { console.warn(e); }
     }
@@ -156,6 +176,9 @@ const KDB = {
   },
 
   async delete(col, id) {
+    // Ghost Fix: Set a deletion flag locally for 15 seconds
+    _klset('k_' + col + '_deleted_' + id, Date.now());
+
     // Remove from local list cache
     const all = _klget('k_' + col + '_all', []).filter(x => x.id !== id && x._id !== id);
     _klset('k_' + col + '_all', all);
@@ -321,10 +344,12 @@ function _kSubscribeCollection(col, onChange, usePrefix) {
   var colRef = kfs.collection(kdb, colName);
   var isFirstSnapshot = true;
   var unsub = kfs.onSnapshot(colRef, function(snapshot) {
-    // Skip the initial snapshot (it matches what we already have from getDocs)
+    // Skip the initial snapshot ONLY if we already loaded fresh data via getAll()
+    // This prevents stale cache (ghost transactions) from sticking around.
     if (isFirstSnapshot) {
       isFirstSnapshot = false;
-      return;
+      var freshLoaded = window._kFreshDataLoaded && window._kFreshDataLoaded[col];
+      if (freshLoaded) return;
     }
     // Check if this change was triggered by current user's recent save
     var hasExternalChange = false;
@@ -349,7 +374,22 @@ function _kSubscribeCollection(col, onChange, usePrefix) {
       return item;
     });
 
-    // Merge logic (simplified for ims_ to keep it moving)
+    // Ghost Fix: Filter out locally deleted items
+    var deletedPrefix = cachePrefix + col + '_deleted_';
+    var now2 = Date.now();
+    for (var i = 0; i < localStorage.length; i++) {
+      var lsKey = localStorage.key(i);
+      if (lsKey && lsKey.indexOf(deletedPrefix) === 0) {
+        var delId = lsKey.substring(deletedPrefix.length);
+        var delTime = _klget(lsKey, 0);
+        if (delTime && (now2 - delTime) < 15000) {
+          items = items.filter(function(x) { return x.id !== delId && x._id !== delId; });
+        } else {
+          localStorage.removeItem(lsKey);
+        }
+      }
+    }
+
     _klset(cachePrefix + col + '_all', items);
 
     // Trigger UI refresh

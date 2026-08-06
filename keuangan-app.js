@@ -1547,13 +1547,24 @@ async function renderDashboard() {
   // Hitung saldo petty cash dari collection (bukan dari jurnal) agar konsisten
   var pcSaldoReal = await getPettyCashSaldo();
 
+  // Actual Balance Fix: Include approved but not yet journaled transactions
+  const approvedPD_unjournaled = allPD.filter(function(x){ return x.status === STATUS.APPROVED && !x.jurnalId; });
+  const approvedDM_unjournaled = allDM.filter(function(x){ return x.status === STATUS.APPROVED && !x.jurnalId; });
+  var extraNet = {};
+  approvedPD_unjournaled.forEach(function(pd) {
+    if(pd.akunKredit) extraNet[pd.akunKredit] = (extraNet[pd.akunKredit] || 0) - (parseFloat(pd.nominal)||0);
+  });
+  approvedDM_unjournaled.forEach(function(dm) {
+    if(dm.akunTerima) extraNet[dm.akunTerima] = (extraNet[dm.akunTerima] || 0) + (parseFloat(dm.nominal)||0);
+  });
+
   const saldoCards = dashKasAkun.map(function(a) {
     var net;
     // Untuk petty cash, pakai saldo dari collection (bukan jurnal)
     if ((a.nama||'').toLowerCase().includes('petty') || a.kode === '1-1101-3') {
       net = pcSaldoReal;
     } else {
-      net = (saldo[a.kode] || {}).net || 0;
+      net = ((saldo[a.kode] || {}).net || 0) + (extraNet[a.kode] || 0);
     }
     const bg = net > 0 ? '#f8fff8' : net < 0 ? '#fff8f8' : '#f8f9ff';
     const border = net > 0 ? '#10b981' : net < 0 ? '#f43f5e' : '#1a237e';
@@ -1570,8 +1581,10 @@ async function renderDashboard() {
     + '<div style="font-size:0.75rem;color:#64748b">Pendapatan Hari Ini</div>'
     + '<div class="fw-bold text-green saldo-card-val" style="margin-top:3px;word-break:break-word;line-height:1.2">' + fmtRp(pendapatanHariIni) + '</div></div>';
   const totalKasBank = kasAkun.reduce(function(s,a){
-    if ((a.nama||'').toLowerCase().includes('petty') || a.kode === '1-1101-3') return s + pcSaldoReal;
-    return s + (((saldo[a.kode]||{}).net)||0);
+    var net;
+    if ((a.nama||'').toLowerCase().includes('petty') || a.kode === '1-1101-3') net = pcSaldoReal;
+    else net = (((saldo[a.kode]||{}).net)||0) + (extraNet[a.kode] || 0);
+    return s + net;
   }, 0);
 
   // Compute total pendapatan and pengeluaran for primary KPI
@@ -1687,10 +1700,22 @@ async function renderDashboardApprover() {
   });
   if (!dashKasAkun2.length) dashKasAkun2 = kasAkun.slice(0, 3);
   var pcSaldoReal2 = await getPettyCashSaldo();
+
+  // Actual Balance Fix: Include approved but not yet journaled transactions
+  const approvedPD_unjournaled2 = allPD.filter(function(x){ return x.status === STATUS.APPROVED && !x.jurnalId; });
+  const approvedDM_unjournaled2 = allDM.filter(function(x){ return x.status === STATUS.APPROVED && !x.jurnalId; });
+  var extraNet2 = {};
+  approvedPD_unjournaled2.forEach(function(pd) {
+    if(pd.akunKredit) extraNet2[pd.akunKredit] = (extraNet2[pd.akunKredit] || 0) - (parseFloat(pd.nominal)||0);
+  });
+  approvedDM_unjournaled2.forEach(function(dm) {
+    if(dm.akunTerima) extraNet2[dm.akunTerima] = (extraNet2[dm.akunTerima] || 0) + (parseFloat(dm.nominal)||0);
+  });
+
   const saldoCards = dashKasAkun2.map(function(a) {
     const net = ((a.nama||'').toLowerCase().includes('petty') || a.kode === '1-1101-3')
       ? pcSaldoReal2
-      : ((saldo[a.kode] || {}).net || 0);
+      : (((saldo[a.kode] || {}).net || 0) + (extraNet2[a.kode] || 0));
     const bg = net > 0 ? '#f8fff8' : net < 0 ? '#fff8f8' : '#f8f9ff';
     const border = net > 0 ? '#10b981' : net < 0 ? '#f43f5e' : '#1a237e';
     const cls = net > 0 ? 'text-green' : net < 0 ? 'text-red' : 'text-blue';
@@ -1706,8 +1731,10 @@ async function renderDashboardApprover() {
     + '<div style="font-size:0.75rem;color:#64748b">Pendapatan Hari Ini</div>'
     + '<div class="fw-bold text-green saldo-card-val" style="margin-top:3px;word-break:break-word;line-height:1.2">' + fmtRp(pendapatanHariIni2) + '</div></div>';
   const totalKasBank2 = kasAkun.reduce(function(s,a){
-    if ((a.nama||'').toLowerCase().includes('petty') || a.kode === '1-1101-3') return s + pcSaldoReal2;
-    return s + (((saldo[a.kode]||{}).net)||0);
+    var net;
+    if ((a.nama||'').toLowerCase().includes('petty') || a.kode === '1-1101-3') net = pcSaldoReal2;
+    else net = (((saldo[a.kode]||{}).net)||0) + (extraNet2[a.kode] || 0);
+    return s + net;
   }, 0);
 
   const jurnalRows = recentJurnal.length
