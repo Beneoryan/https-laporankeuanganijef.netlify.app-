@@ -1447,6 +1447,24 @@ async function getFinancialData() {
   return { saldo: saldo, akun: allAkun };
 }
 
+/**
+ * Helper untuk menghitung saldo "Live" yang belum masuk jurnal (sudah Approved).
+ */
+function getExtraAccountingNet(allPD, allDM) {
+  const approvedPD = (allPD || []).filter(function(x){ return x.status === STATUS.APPROVED && !x.jurnalId; });
+  const approvedDM = (allDM || []).filter(function(x){ return x.status === STATUS.APPROVED && !x.jurnalId; });
+  var extra = {};
+  approvedPD.forEach(function(pd) {
+    var k = pd.akunKredit || '1-1100';
+    extra[k] = (extra[k] || 0) - (parseFloat(pd.nominal)||0);
+  });
+  approvedDM.forEach(function(dm) {
+    var k = dm.akunTerima || '1-1100';
+    extra[k] = (extra[k] || 0) + (parseFloat(dm.nominal)||0);
+  });
+  return extra;
+}
+
 // ===== SHARED: Petty Cash Saldo from Collection =====
 async function getPettyCashSaldo() {
   var pcSaldoAwal = parseFloat(await KDB.getSetting('pettycash_saldo', 0)) || 0;
@@ -1548,15 +1566,7 @@ async function renderDashboard() {
   var pcSaldoReal = await getPettyCashSaldo();
 
   // Actual Balance Fix: Include approved but not yet journaled transactions
-  const approvedPD_unjournaled = allPD.filter(function(x){ return x.status === STATUS.APPROVED && !x.jurnalId; });
-  const approvedDM_unjournaled = allDM.filter(function(x){ return x.status === STATUS.APPROVED && !x.jurnalId; });
-  var extraNet = {};
-  approvedPD_unjournaled.forEach(function(pd) {
-    if(pd.akunKredit) extraNet[pd.akunKredit] = (extraNet[pd.akunKredit] || 0) - (parseFloat(pd.nominal)||0);
-  });
-  approvedDM_unjournaled.forEach(function(dm) {
-    if(dm.akunTerima) extraNet[dm.akunTerima] = (extraNet[dm.akunTerima] || 0) + (parseFloat(dm.nominal)||0);
-  });
+  var extraNet = getExtraAccountingNet(allPD, allDM);
 
   const saldoCards = dashKasAkun.map(function(a) {
     var net;
@@ -1702,15 +1712,7 @@ async function renderDashboardApprover() {
   var pcSaldoReal2 = await getPettyCashSaldo();
 
   // Actual Balance Fix: Include approved but not yet journaled transactions
-  const approvedPD_unjournaled2 = allPD.filter(function(x){ return x.status === STATUS.APPROVED && !x.jurnalId; });
-  const approvedDM_unjournaled2 = allDM.filter(function(x){ return x.status === STATUS.APPROVED && !x.jurnalId; });
-  var extraNet2 = {};
-  approvedPD_unjournaled2.forEach(function(pd) {
-    if(pd.akunKredit) extraNet2[pd.akunKredit] = (extraNet2[pd.akunKredit] || 0) - (parseFloat(pd.nominal)||0);
-  });
-  approvedDM_unjournaled2.forEach(function(dm) {
-    if(dm.akunTerima) extraNet2[dm.akunTerima] = (extraNet2[dm.akunTerima] || 0) + (parseFloat(dm.nominal)||0);
-  });
+  var extraNet2 = getExtraAccountingNet(allPD, allDM);
 
   const saldoCards = dashKasAkun2.map(function(a) {
     const net = ((a.nama||'').toLowerCase().includes('petty') || a.kode === '1-1101-3')
@@ -6607,9 +6609,12 @@ async function analisaSelisihSaldo(skipPrompt) {
 
   showLoading(true);
   var jurnal = await KDB.getAll('jurnal');
-  var akun = await getAkun();
+  var permohonan = await KDB.getAll('permohonan');
+  var danamasuk = await KDB.getAll('danamasuk');
   var fd = await getFinancialData();
-  var saldoSistem = (fd.saldo[kasAkun] || {}).net || 0;
+  var extraNet = getExtraAccountingNet(permohonan, danamasuk);
+
+  var saldoSistem = ((fd.saldo[kasAkun] || {}).net || 0) + (extraNet[kasAkun] || 0);
   var selisih = saldoSistem - saldoReal;
 
   // Deteksi penyebab selisih
@@ -8133,8 +8138,12 @@ function hitungSelisihPC() {
 
 async function renderBankRec() {
   const list = await KDB.getAll('bankrec');
-  const akunAll = await getAkun();
+  const allPD = await KDB.getAll('permohonan');
+  const allDM = await KDB.getAll('danamasuk');
   const fd = await getFinancialData();
+  const extraNet = getExtraAccountingNet(allPD, allDM);
+  const akunAll = fd.akun;
+
   var bankAkun = akunAll.filter(function(a) {
     var n = (a.nama||'').toLowerCase();
     return (n.includes('bank') || n.includes('kas')) && a.kategori === 'Aset Lancar';
@@ -8142,10 +8151,10 @@ async function renderBankRec() {
   var actualBalances = await getStoredBankActualBalances(bankAkun.map(function(a) { return a.kode; }));
   var bankOpts = bankAkun.map(function(a){ return '<option value="' + a.kode + '">' + a.kode + ' - ' + a.nama + '</option>'; }).join('');
 
-  // Tampilkan ringkasan saldo per bank dari sistem
+  // Tampilkan ringkasan saldo per bank dari sistem (Termasuk transaksi live un-journaled)
   var bankSummaryHtml = bankAkun.map(function(a) {
-    var s = fd.saldo[a.kode] || { debit: 0, kredit: 0 };
-    var saldoSistem = (s.debit||0) - (s.kredit||0);
+    var s = fd.saldo[a.kode] || { debit: 0, kredit: 0, net: 0 };
+    var saldoSistem = (s.net || 0) + (extraNet[a.kode] || 0);
     var savedActual = parseFloat(actualBalances[a.kode]) || 0;
     var selisih = savedActual ? (saldoSistem - savedActual) : 0;
     var statusBadge = !savedActual ? '<span class="badge badge-neutral">Belum diisi</span>'
