@@ -2489,8 +2489,9 @@ async function renderJurnalUmum() {
 
   const rows = sorted.length ? sorted.map(function(j) {
     const bal = Math.abs((j.totalDebit||0)-(j.totalKredit||0)) < 1;
-    const hapusBtn = hasRole('leader') ? '<button class="btn btn-xs btn-danger" onclick="hapusJurnal(\'' + j.id + '\')" title="Hapus jurnal ini">Hapus</button>' : '';
-    const editBtn = hasRole('leader') ? '<button class="btn btn-xs btn-warning" onclick="editJurnal(\'' + j.id + '\')">Edit</button>' : '';
+    const sId = String(j.id).replace(/'/g, "\\'"); // Safe ID for onclick
+    const hapusBtn = hasRole('leader') ? '<button class="btn btn-xs btn-danger" onclick="hapusJurnal(\'' + sId + '\')" title="Hapus jurnal ini">Hapus</button>' : '';
+    const editBtn = hasRole('leader') ? '<button class="btn btn-xs btn-warning" onclick="editJurnal(\'' + sId + '\')">Edit</button>' : '';
     const sumberChip = j.sumber ? '<span class="chip" style="font-size:0.68rem;background:#e8f0fe;color:#1a237e">' + j.sumber + '</span> ' : '';
     const akunCodes = (j.lines||[]).map(function(l){ return l.akun||''; }).join(',');
     return '<tr data-id="' + j.id + '" data-tanggal="' + (j.tanggal||'') + '" data-sumber="' + (j.sumber||'') + '" data-akun="' + akunCodes + '">'
@@ -2499,7 +2500,7 @@ async function renderJurnalUmum() {
       + '<td>' + sumberChip + (j.keterangan||'-') + '</td>'
       + '<td class="text-green">' + fmtRp(j.totalDebit) + '</td><td class="text-red">' + fmtRp(j.totalKredit) + '</td>'
       + '<td><span class="badge ' + (bal?'badge-success':'badge-danger') + '">' + (bal?'Balance':'Unbalance') + '</span></td>'
-      + '<td class="tbl-actions"><button class="btn btn-xs btn-info" onclick="lihatJurnal(\'' + j.id + '\')">Detail</button>' + editBtn + hapusBtn + '</td></tr>';
+      + '<td class="tbl-actions"><button class="btn btn-xs btn-info" onclick="lihatJurnal(\'' + sId + '\')">Detail</button>' + editBtn + hapusBtn + '</td></tr>';
   }).join('') : '<tr><td colspan="8" class="text-center text-muted">Belum ada jurnal</td></tr>';
 
   return '<div class="page-title">📓 Jurnal Umum</div>' + addForm
@@ -4326,36 +4327,39 @@ async function resolveJurnalEvidenValue(value, sourceLabel) {
 
 async function buildEditJurnalEvidenHtml(j) {
   var jurnalRef = (j.noRef || j.ref || '').trim();
+  var jNominal = parseFloat(j.totalDebit) || 0;
   var evidenCandidates = [];
   if (jurnalRef) evidenCandidates.push({ label: 'No. Referensi', value: jurnalRef });
 
   var permohonanList = null;
   var danaMasukList = null;
   if (j.meta && j.meta.permohonanId) {
-    permohonanList = await KDB.getAll('permohonan');
-    var p = permohonanList.find(function(x) { return x.id === j.meta.permohonanId; });
+    var p = await KDB.get('permohonan', j.meta.permohonanId);
     if (p && p.buktiDokumen) evidenCandidates.push({ label: 'Permohonan Dana', value: p.buktiDokumen });
   }
   if (j.meta && j.meta.danaMasukId) {
-    danaMasukList = await KDB.getAll('danamasuk');
-    var d = danaMasukList.find(function(x) { return x.id === j.meta.danaMasukId; });
+    var d = await KDB.get('danamasuk', j.meta.danaMasukId);
     if (d && d.buktiDokumen) evidenCandidates.push({ label: 'Dana Masuk', value: d.buktiDokumen });
   }
+
   // Fallback untuk data lama yang belum punya meta relasi:
-  // cari eviden dari transaksi sumber via jurnalId / noRef.
+  // cari eviden dari transaksi sumber via jurnalId / noRef dengan pengecekan nominal yang ketat.
   if ((j.sumber === 'permohonan-dana' || !j.meta || !j.meta.permohonanId)) {
     if (!permohonanList) permohonanList = await KDB.getAll('permohonan');
     var pByRef = permohonanList.find(function(x) {
+      // Harus cocok nominalnya agar tidak salah bukti
+      var nominalMatch = Math.abs((parseFloat(x.nominal)||0) - jNominal) < 1;
       return (x.jurnalId && x.jurnalId === j.id)
-        || (jurnalRef && normalizeCompareRef(x.noPOInvoice || x.id) === normalizeCompareRef(jurnalRef));
+        || (nominalMatch && jurnalRef && normalizeCompareRef(x.noPOInvoice || x.id) === normalizeCompareRef(jurnalRef));
     });
     if (pByRef && pByRef.buktiDokumen) evidenCandidates.push({ label: 'Permohonan Dana (Auto Match)', value: pByRef.buktiDokumen });
   }
   if ((j.sumber === 'dana-masuk' || !j.meta || !j.meta.danaMasukId)) {
     if (!danaMasukList) danaMasukList = await KDB.getAll('danamasuk');
     var dByRef = danaMasukList.find(function(x) {
+      var nominalMatch = Math.abs((parseFloat(x.nominal)||0) - jNominal) < 1;
       return (x.jurnalId && x.jurnalId === j.id)
-        || (jurnalRef && normalizeCompareRef(x.noRef || x.id) === normalizeCompareRef(jurnalRef));
+        || (nominalMatch && jurnalRef && normalizeCompareRef(x.noRef || x.id) === normalizeCompareRef(jurnalRef));
     });
     if (dByRef && dByRef.buktiDokumen) evidenCandidates.push({ label: 'Dana Masuk (Auto Match)', value: dByRef.buktiDokumen });
   }
@@ -4491,23 +4495,29 @@ async function simpanEditJurnal(id) {
 }
 
 async function lihatJurnal(id) {
-  const jurnal = await KDB.getAll('jurnal');
-  const j = jurnal.find(function(x){ return x.id === id; });
-  if (!j) return;
-  var evidenHtml = await buildEditJurnalEvidenHtml(j);
-  const lines = (j.lines || []).map(function(l) {
-    return '<tr><td>' + l.akun + '</td><td>' + (l.ket||'-') + '</td><td class="text-green">' + (l.debit ? fmtRp(l.debit) : '-') + '</td><td class="text-red">' + (l.kredit ? fmtRp(l.kredit) : '-') + '</td></tr>';
-  }).join('');
-  openModal('<div class="form-grid">'
-    + '<div class="fg"><label>Tanggal</label><div class="chip">' + fmtDate(j.tanggal) + '</div></div>'
-    + '<div class="fg"><label>No. Ref</label><div class="chip">' + (j.noRef||'-') + '</div></div>'
-    + '<div class="fg full"><label>Keterangan</label><div>' + j.keterangan + '</div></div>'
-    + '</div>' + evidenHtml + '<div class="table-wrap mt-12"><table><thead><tr><th>Akun</th><th>Keterangan</th><th>Debit</th><th>Kredit</th></tr></thead><tbody>' + lines + '</tbody>'
-    + '<tfoot><tr style="background:#f5f5ff"><td colspan="2"><b>Total</b></td><td class="text-green fw-bold">' + fmtRp(j.totalDebit) + '</td><td class="text-red fw-bold">' + fmtRp(j.totalKredit) + '</td></tr></tfoot></table></div>'
-    + '<div class="modal-footer"><button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>'
-    + (hasRole('leader') ? '<button class="btn btn-danger" onclick="closeModalDirect();hapusJurnal(\'' + id + '\')">🗑️ Hapus Jurnal Ini</button>' : '')
-    + '</div>',
-    'Detail Jurnal');
+  // Use faster single-item get instead of getAll
+  const j = await KDB.get('jurnal', id);
+  if (!j) { showAlert('Data jurnal tidak ditemukan', 'warning'); return; }
+
+  showLoading(true);
+  try {
+    var evidenHtml = await buildEditJurnalEvidenHtml(j);
+    const lines = (j.lines || []).map(function(l) {
+      return '<tr><td>' + l.akun + '</td><td>' + (l.ket||'-') + '</td><td class="text-green">' + (l.debit ? fmtRp(l.debit) : '-') + '</td><td class="text-red">' + (l.kredit ? fmtRp(l.kredit) : '-') + '</td></tr>';
+    }).join('');
+
+    openModal('<div class="form-grid">'
+      + '<div class="fg"><label>Tanggal</label><div class="chip">' + fmtDate(j.tanggal) + '</div></div>'
+      + '<div class="fg"><label>No. Ref</label><div class="chip">' + (j.noRef||'-') + '</div></div>'
+      + '<div class="fg full"><label>Keterangan</label><div>' + j.keterangan + '</div></div>'
+      + '</div>' + evidenHtml + '<div class="table-wrap mt-12"><table><thead><tr><th>Akun</th><th>Keterangan</th><th>Debit</th><th>Kredit</th></tr></thead><tbody>' + lines + '</tbody>'
+      + '<tfoot><tr style="background:#f5f5ff"><td colspan="2"><b>Total</b></td><td class="text-green fw-bold">' + fmtRp(j.totalDebit) + '</td><td class="text-red fw-bold">' + fmtRp(j.totalKredit) + '</td></tr></tfoot></table></div>'
+      + '<div class="modal-footer"><button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>'
+      + (hasRole('leader') ? '<button class="btn btn-danger" onclick="closeModalDirect();hapusJurnal(\'' + String(id).replace(/'/g, "\\'") + '\')">🗑️ Hapus Jurnal Ini</button>' : '')
+      + '</div>',
+      'Detail Jurnal');
+  } catch(e) { console.error('lihatJurnal error:', e); showAlert('Gagal memuat detail: ' + e.message, 'danger'); }
+  showLoading(false);
 }
 
 async function renderJurnalPenyesuaian() {
