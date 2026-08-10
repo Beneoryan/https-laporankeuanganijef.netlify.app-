@@ -47,11 +47,11 @@ const MENU = [
     { id: 'dana-masuk',      label: 'Dana Masuk',      icon: '📥', minRole: 'viewer' },
     { id: 'dana-approval',   label: 'Approval Center', icon: '✅', minRole: 'viewer' },
     { id: 'portal-aset',     label: 'Portal Perlengkapan & Aset', icon: '📦', minRole: 'viewer' },
-    { id: 'ims-finance',     label: 'KEUANGAN IMS',    icon: '🏢', minRole: 'viewer', items: [
-      { id: 'ims-menu-keu',  label: 'MENU KEUANGAN',   icon: '📊', minRole: 'viewer', items: [
-        { id: 'ims-sub-keu', label: 'SUB MENU KEUANGAN', icon: '💰', minRole: 'viewer' }
-      ]}
-    ]},
+  ]},
+  { group: 'Keuangan IMS', icon: '🏢', items: [
+    { id: 'ims-finance',     label: 'Dashboard IMS',    icon: '📊', minRole: 'viewer' },
+    { id: 'kalk-inventori-atk', label: 'Inventori Stok ATK', icon: '📋', minRole: 'viewer' },
+    { id: 'ims-sub-keu',     label: 'Transaksi Keuangan IMS', icon: '💰', minRole: 'viewer' },
   ]},
   { group: 'Jurnal', icon: '📝', items: [
     { id: 'jurnal-umum',         label: 'Jurnal Umum',         icon: '📓', minRole: 'leader' },
