@@ -46,12 +46,12 @@ const MENU = [
     { id: 'dana-permohonan', label: 'Permohonan Dana', icon: '📤', minRole: 'viewer' },
     { id: 'dana-masuk',      label: 'Dana Masuk',      icon: '📥', minRole: 'viewer' },
     { id: 'dana-approval',   label: 'Approval Center', icon: '✅', minRole: 'viewer' },
+    { id: 'ims-menu-keu',    label: 'Keuangan IMS',    icon: '🏢', minRole: 'viewer', items: [
+      { id: 'ims-finance',        label: 'Dashboard IMS',          icon: '📊', minRole: 'viewer' },
+      { id: 'kalk-inventori-atk', label: 'Inventori Stok ATK',     icon: '📋', minRole: 'viewer' },
+      { id: 'ims-sub-keu',        label: 'Transaksi Keuangan IMS', icon: '💰', minRole: 'viewer' },
+    ]},
     { id: 'portal-aset',     label: 'Portal Perlengkapan & Aset', icon: '📦', minRole: 'viewer' },
-  ]},
-  { group: 'Keuangan IMS', icon: '🏢', items: [
-    { id: 'ims-finance',     label: 'Dashboard IMS',    icon: '📊', minRole: 'viewer' },
-    { id: 'kalk-inventori-atk', label: 'Inventori Stok ATK', icon: '📋', minRole: 'viewer' },
-    { id: 'ims-sub-keu',     label: 'Transaksi Keuangan IMS', icon: '💰', minRole: 'viewer' },
   ]},
   { group: 'Jurnal', icon: '📝', items: [
     { id: 'jurnal-umum',         label: 'Jurnal Umum',         icon: '📓', minRole: 'leader' },
@@ -91,7 +91,6 @@ const MENU = [
     { id: 'kalk-po',            label: 'Purchase Order',         icon: '📦', minRole: 'viewer' },
     { id: 'kalk-gaji',          label: 'Gaji / Salary',          icon: '👔', minRole: 'admin' },
     { id: 'kalk-hpp',           label: 'Hitung HPP',             icon: '🏭', minRole: 'admin' },
-    { id: 'kalk-inventori-atk', label: 'Inventori Stok ATK',     icon: '📋', minRole: 'viewer' },
   ]},
   { group: 'Bantuan', icon: '❓', items: [
     { id: 'bantuan', label: 'Cara Penggunaan', icon: '📖', minRole: 'viewer' },
@@ -108,6 +107,11 @@ const MENU = [
 ];
 
 // ===== HELPERS =====
+function isIMSMenuItem(item) {
+  if (!item) return false;
+  return ['ims-menu-keu', 'ims-finance', 'ims-sub-keu', 'kalk-inventori-atk'].includes(item.id);
+}
+
 function showLoading(v) {
   const el = document.getElementById('loading-overlay');
   if (el) el.classList.toggle('show', v);
@@ -925,16 +929,23 @@ function buildSidebar() {
   let html = '';
   let groupIdx = 0;
 
-  function renderItemsRecursive(items, level) {
+  function canShowItem(item, groupName) {
+    if (!hasRole(item.minRole)) return false;
+    if (isNanda && groupName === 'Transaksi' && item.id !== 'portal-aset') return false;
+    if (isBOD && groupName === 'Transaksi') return item.id === 'dana-approval' || isIMSMenuItem(item);
+    if (isLimited && groupName === 'Transaksi') return item.id === 'dana-approval' || isIMSMenuItem(item);
+    if (isBOD && groupName === 'Laporan') return ['lap-dashboard', 'lap-labarugi', 'lap-neraca', 'lap-aruskas', 'lap-print-bundle'].includes(item.id);
+    if (isLimited && groupName === 'Laporan') return ['lap-dashboard', 'lap-print-bundle'].includes(item.id);
+    if ((isBOD || isLimited) && groupName === 'Monitor') return item.id.startsWith('monitor-');
+    if (isNanda) return groupName === 'Bantuan';
+    if (isBOD || isLimited) return groupName === 'Bantuan';
+    return true;
+  }
+
+  function renderItemsRecursive(items, level, groupName) {
     let subHtml = '';
     items.forEach(function(item) {
-      if (!hasRole(item.minRole)) return;
-
-      // Filter role per item for Nanda/BOD
-      if (isNanda && item.id !== 'portal-aset' && group.group === 'Transaksi') return;
-      if (isBOD && group.group === 'Transaksi' && item.id !== 'dana-approval') return;
-      // isLimited can see IMS
-      if (isLimited && group.group === 'Transaksi' && item.id !== 'dana-approval' && !item.id.startsWith('ims-')) return;
+      if (!canShowItem(item, groupName)) return;
 
       const hasSub = item.items && item.items.length > 0;
       const isActive = item.id === currentSection;
@@ -945,16 +956,17 @@ function buildSidebar() {
 
       const levelClass = level === 1 ? ' sub' : (level === 2 ? ' sub-sub' : '');
       const hasSubClass = hasSub ? ' has-sub' : '';
+      const parentActiveClass = hasSub && childActive && !isActive ? ' active-parent' : '';
 
       subHtml += '<div class="sidebar-subgroup' + (childActive ? ' expanded' : '') + '">';
-      subHtml += '<div class="sidebar-item' + levelClass + hasSubClass + (isActive ? ' active' : '') + '" id="nav-' + item.id + '" '
+      subHtml += '<div class="sidebar-item' + levelClass + hasSubClass + (isActive ? ' active' : '') + parentActiveClass + '" id="nav-' + item.id + '" '
               + 'onclick="' + (hasSub ? 'toggleSidebarSubmenu(event, this)' : 'navigate(\'' + item.id + '\')') + '">'
-              + '<span><span class="icon">' + item.icon + '</span>' + item.label + '</span>'
+              + '<span class="sidebar-item-content"><span class="icon">' + item.icon + '</span><span class="sidebar-item-label">' + item.label + '</span></span>'
               + (hasSub ? '<span class="sidebar-sub-arrow">&#9654;</span>' : '') + '</div>';
 
       if (hasSub) {
         subHtml += '<div class="sidebar-submenu" ' + (childActive ? 'style="max-height:1000px"' : '') + '>';
-        subHtml += renderItemsRecursive(item.items, level + 1);
+        subHtml += renderItemsRecursive(item.items, level + 1, groupName);
         subHtml += '</div>';
       }
       subHtml += '</div>';
@@ -966,23 +978,8 @@ function buildSidebar() {
     const visible = group.items.filter(function(item) { return hasRole(item.minRole); });
     if (!visible.length) return;
 
-    // Global group filter (same as before but adapted for nested)
-    window.group = group; // temporary for helper
     const filteredItems = visible.filter(function(item) {
-        if (isNanda) return (group.group === 'Transaksi' && item.id === 'portal-aset') || group.group === 'Bantuan';
-        if (isBOD) {
-            if (group.group === 'Laporan') return ['lap-dashboard', 'lap-labarugi', 'lap-neraca', 'lap-aruskas', 'lap-print-bundle'].includes(item.id);
-            if (group.group === 'Transaksi') return item.id === 'dana-approval';
-            if (group.group === 'Monitor') return item.id.startsWith('monitor-');
-            return group.group === 'Bantuan';
-        }
-        if (isLimited) {
-            if (group.group === 'Laporan') return ['lap-dashboard', 'lap-print-bundle'].includes(item.id);
-            if (group.group === 'Transaksi') return item.id === 'dana-approval' || item.id.startsWith('ims-');
-            if (group.group === 'Monitor') return item.id.startsWith('monitor-');
-            return group.group === 'Bantuan';
-        }
-        return true;
+        return canShowItem(item, group.group);
     });
 
     if (!filteredItems.length) return;
@@ -993,10 +990,10 @@ function buildSidebar() {
 
     html += '<div class="sidebar-group' + (groupHasActive ? ' expanded' : '') + '" data-group-idx="' + groupIdx + '">';
     html += '<div class="sidebar-group-title" onclick="toggleSidebarGroup(this)">'
-          + '<span class="sidebar-group-arrow">' + (groupHasActive ? '&#9660;' : '&#9654;') + '</span> '
-          + group.icon + ' ' + group.group + '</div>';
+          + '<span class="sidebar-group-title-main"><span class="icon">' + group.icon + '</span><span class="sidebar-item-label">' + group.group + '</span></span>'
+          + '<span class="sidebar-group-arrow">' + (groupHasActive ? '&#9660;' : '&#9654;') + '</span></div>';
     html += '<div class="sidebar-group-items"' + (groupHasActive ? ' style="max-height:1000px"' : '') + '>';
-    html += renderItemsRecursive(filteredItems, 0);
+    html += renderItemsRecursive(filteredItems, 0, group.group);
     html += '</div></div><div class="sidebar-divider"></div>';
     groupIdx++;
   });
@@ -17008,44 +17005,83 @@ function updateChatMessageList(rawMsgs) {
 
 // ===== KEUANGAN IMS =====
 async function renderIMSFinance() {
+  const [pdList, dmList, atkList, atkLogList] = await Promise.all([
+    KDB.getAll('permohonan'),
+    KDB.getAll('danamasuk'),
+    KDB.getAll('inventori_atk'),
+    KDB.getAll('atk_log')
+  ]);
+  const imsPermohonan = (pdList || []).filter(isIMSRecord);
+  const imsDanaMasuk = (dmList || []).filter(isIMSRecord);
+  const pendingIMS = imsPermohonan.filter(function(item) {
+    return item.status && item.status.indexOf('Pending') === 0;
+  }).length;
+
   return '<div class="page-title">🏢 Keuangan IMS</div>'
     + '<div class="card">'
     + '  <div class="card-header"><h2>Dashboard Keuangan IMS</h2></div>'
     + '  <div class="stats-row">'
-    + '    <div class="stat-box"><div class="val">IMS</div><div class="lbl">Sistem Terintegrasi</div></div>'
-    + '    <div class="stat-box green"><div class="val">Aktif</div><div class="lbl">Status Menu</div></div>'
+    + '    <div class="stat-box"><div class="val">' + imsPermohonan.length + '</div><div class="lbl">Permohonan IMS</div></div>'
+    + '    <div class="stat-box green"><div class="val">' + imsDanaMasuk.length + '</div><div class="lbl">Dana Masuk IMS</div></div>'
+    + '    <div class="stat-box"><div class="val">' + ((atkList || []).length) + '</div><div class="lbl">Item Inventori ATK</div></div>'
+    + '    <div class="stat-box red"><div class="val">' + pendingIMS + '</div><div class="lbl">Pending Approval IMS</div></div>'
     + '  </div>'
-    + '  <div class="alert alert-info">Selamat datang di modul Keuangan IMS. Gunakan submenu untuk navigasi lebih lanjut.</div>'
+    + '  <div class="alert alert-info">Menu Keuangan IMS sekarang sudah tersinkron di dalam menu Transaksi agar alur dashboard, transaksi, inventori, dan approval tetap satu jalur.</div>'
+    + '  <div style="display:flex; gap:12px; margin-top:16px; flex-wrap:wrap">'
+    + '    <button class="btn btn-primary" onclick="navigate(\'ims-sub-keu\')">💰 Buka Transaksi IMS</button>'
+    + '    <button class="btn btn-outline" onclick="navigate(\'kalk-inventori-atk\')">📋 Buka Inventori ATK</button>'
+    + '    <button class="btn btn-outline" onclick="navigate(\'dana-approval\')">✅ Approval Center</button>'
+    + '  </div>'
+    + '</div>'
+    + '<div class="card">'
+    + '  <div class="card-header"><h2>Ringkasan Aktivitas IMS</h2></div>'
+    + '  <div class="responsive-grid-2">'
+    + '    <div class="alert alert-info" style="margin-bottom:0">📦 Aktivitas inventori tercatat sebanyak ' + ((atkLogList || []).length) + ' log dan tetap memakai modul Inventori Stok ATK yang sama.</div>'
+    + '    <div class="alert alert-info" style="margin-bottom:0">🔗 Semua tombol IMS diarahkan ke form aplikasi utama agar data jurnal, approval, dan inventori tetap sinkron.</div>'
+    + '  </div>'
     + '</div>';
 }
 
 async function renderIMSMenuKeuangan() {
-  return '<div class="page-title">📊 Menu Keuangan IMS</div>'
-    + '<div class="card">'
-    + '  <div class="card-header"><h2>Kelola Keuangan IMS</h2></div>'
-    + '  <p>Pilih sub-menu untuk melihat detail transaksi atau laporan khusus IMS.</p>'
-    + '</div>';
+  return renderIMSFinance();
 }
 
 async function renderIMSSubKeuangan() {
-  const pdList = await KDB.getAll('permohonan');
-  const imsPD = pdList.filter(p => (p.keterangan||"").toLowerCase().includes("ims")).length;
+  const [pdList, dmList] = await Promise.all([
+    KDB.getAll('permohonan'),
+    KDB.getAll('danamasuk')
+  ]);
+  const imsPermohonan = (pdList || []).filter(isIMSRecord);
+  const imsDanaMasuk = (dmList || []).filter(isIMSRecord);
+  const pendingPermohonan = imsPermohonan.filter(function(item) {
+    return item.status && item.status.indexOf('Pending') === 0;
+  }).length;
 
   return '<div class="page-title">💰 Sub Menu Keuangan IMS</div>'
     + '<div class="card">'
     + '  <div class="card-header"><h2>Transaksi Keuangan IMS</h2></div>'
     + '  <div class="stats-row">'
-    + '    <div class="stat-box"><div class="val">' + imsPD + '</div><div class="lbl">Permohonan IMS</div></div>'
+    + '    <div class="stat-box"><div class="val">' + imsPermohonan.length + '</div><div class="lbl">Permohonan IMS</div></div>'
+    + '    <div class="stat-box green"><div class="val">' + imsDanaMasuk.length + '</div><div class="lbl">Dana Masuk IMS</div></div>'
+    + '    <div class="stat-box red"><div class="val">' + pendingPermohonan + '</div><div class="lbl">Pending IMS</div></div>'
     + '  </div>'
     + '  <div style="display:flex; gap:12px; margin-top:16px; flex-wrap:wrap">'
     + '    <button class="btn btn-primary" onclick="buatPermohonanIMS()">📤 Buat Permohonan Dana IMS</button>'
-    + '    <button class="btn btn-success" onclick="buatDanaMasukIMS()">📥 Catat Dana Masuk IMS</button>'
+    + '    <button class="btn btn-primary" onclick="buatDanaMasukIMS()">📥 Catat Dana Masuk IMS</button>'
+    + '    <button class="btn btn-outline" onclick="navigate(\'dana-approval\')">✅ Lihat Approval IMS</button>'
     + '  </div>'
     + '</div>'
     + '<div class="card">'
     + '  <div class="card-header"><h2>Panduan Integrasi</h2></div>'
-    + '  <p class="text-muted">Tombol di atas akan mengarahkan Anda ke form transaksi umum dengan keterangan yang sudah terisi otomatis untuk mempermudah pelacakan data IMS.</p>'
+    + '  <p style="color:#64748b;line-height:1.6">Tombol di atas akan mengarahkan Anda ke form transaksi umum dengan keterangan yang sudah terisi otomatis untuk mempermudah pelacakan data IMS tanpa memecah data dari modul utama.</p>'
     + '</div>';
+}
+
+function isIMSRecord(item) {
+  if (!item) return false;
+  return ['keterangan', 'ket', 'nama', 'ref', 'noRef', 'judul', 'tujuan'].some(function(key) {
+    return String(item[key] || '').toLowerCase().includes('ims');
+  });
 }
 
 window.buatPermohonanIMS = function() {
