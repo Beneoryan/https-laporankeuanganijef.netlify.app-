@@ -92,6 +92,16 @@ const MENU = [
     { id: 'kalk-gaji',          label: 'Gaji / Salary',          icon: '👔', minRole: 'admin' },
     { id: 'kalk-hpp',           label: 'Hitung HPP',             icon: '🏭', minRole: 'admin' },
   ]},
+  { group: 'Sinkron IMS', icon: '🔗', items: [
+    { id: 'ims-sync-perjalanan',   label: 'Perjalanan Dinas',   icon: '✈️',  minRole: 'viewer' },
+    { id: 'ims-sync-penggajian',   label: 'Penggajian',         icon: '💰',  minRole: 'viewer' },
+    { id: 'ims-sync-tax-bpjs',     label: 'Tax & BPJS',         icon: '🧮',  minRole: 'viewer' },
+    { id: 'ims-sync-insentif',     label: 'Insentif',           icon: '🏆',  minRole: 'viewer' },
+    { id: 'ims-sync-reimburse',    label: 'Reimbursement',      icon: '📋',  minRole: 'viewer' },
+    { id: 'ims-sync-kasbon',       label: 'Kasbon & Loan',      icon: '💳',  minRole: 'viewer' },
+    { id: 'ims-sync-tunjangan',    label: 'Tunjangan',          icon: '🎁',  minRole: 'viewer' },
+    { id: 'ims-sync-lap-keu',      label: 'Laporan Keuangan',   icon: '📊',  minRole: 'viewer' },
+  ]},
   { group: 'Bantuan', icon: '❓', items: [
     { id: 'bantuan', label: 'Cara Penggunaan', icon: '📖', minRole: 'viewer' },
     { id: 'ai-assistant', label: 'AI Assistant', icon: '🤖', minRole: 'viewer' },
@@ -937,8 +947,9 @@ function buildSidebar() {
     if (isBOD && groupName === 'Laporan') return ['lap-dashboard', 'lap-labarugi', 'lap-neraca', 'lap-aruskas', 'lap-print-bundle'].includes(item.id);
     if (isLimited && groupName === 'Laporan') return ['lap-dashboard', 'lap-print-bundle'].includes(item.id);
     if ((isBOD || isLimited) && groupName === 'Monitor') return item.id.startsWith('monitor-');
-    if (isNanda) return groupName === 'Bantuan';
-    if (isBOD || isLimited) return groupName === 'Bantuan';
+    if (groupName === 'Sinkron IMS') return hasRole(item.minRole);
+    if (isNanda) return groupName === 'Bantuan' || groupName === 'Sinkron IMS';
+    if (isBOD || isLimited) return groupName === 'Bantuan' || groupName === 'Sinkron IMS';
     return true;
   }
 
@@ -1133,6 +1144,17 @@ function navigate(id) {
 async function renderSection(id) {
   const el = document.getElementById('sec-' + id);
   if (!el) return;
+  // Show skeleton immediately for dashboard to prevent blank screen
+  if (id === 'lap-dashboard') {
+    el.innerHTML = '<div style="padding:16px">'
+      + '<div style="height:32px;background:#e2e8f0;border-radius:8px;width:60%;margin-bottom:20px;animation:shimmer 1.2s infinite linear;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%"></div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">'
+      + '<div style="height:80px;background:#e2e8f0;border-radius:12px;animation:shimmer 1.2s infinite linear;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%"></div>'
+      + '<div style="height:80px;background:#e2e8f0;border-radius:12px;animation:shimmer 1.2s infinite linear;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%"></div>'
+      + '</div>'
+      + '<div style="height:160px;background:#e2e8f0;border-radius:16px;margin-bottom:16px;animation:shimmer 1.2s infinite linear;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%"></div>'
+      + '</div>';
+  }
   showLoading(true);
   try {
     switch(id) {
@@ -1189,6 +1211,14 @@ async function renderSection(id) {
       case 'ims-finance':         el.innerHTML = await renderIMSFinance(); break;
       case 'ims-menu-keu':       el.innerHTML = await renderIMSFinance(); break;
       case 'ims-sub-keu':        el.innerHTML = await renderIMSSubKeuangan(); break;
+      case 'ims-sync-perjalanan': el.innerHTML = await renderIMSSyncPage('perjalanan', '✈️', 'Perjalanan Dinas'); break;
+      case 'ims-sync-penggajian': el.innerHTML = await renderIMSSyncPage('penggajian', '💰', 'Penggajian'); break;
+      case 'ims-sync-tax-bpjs':   el.innerHTML = await renderIMSSyncPage('tax-bpjs', '🧮', 'Tax & BPJS'); break;
+      case 'ims-sync-insentif':   el.innerHTML = await renderIMSSyncPage('insentif', '🏆', 'Insentif'); break;
+      case 'ims-sync-reimburse':  el.innerHTML = await renderIMSSyncPage('reimburse', '📋', 'Reimbursement'); break;
+      case 'ims-sync-kasbon':     el.innerHTML = await renderIMSSyncPage('kasbon', '💳', 'Kasbon & Loan'); break;
+      case 'ims-sync-tunjangan':  el.innerHTML = await renderIMSSyncPage('tunjangan', '🎁', 'Tunjangan'); break;
+      case 'ims-sync-lap-keu':    el.innerHTML = await renderIMSSyncPage('laporan-keuangan', '📊', 'Laporan Keuangan IMS'); break;
       default: el.innerHTML = '<div class="empty-state"><span class="icon">🚧</span>Halaman dalam pengembangan</div>';
     }
   } catch(e) {
@@ -17102,3 +17132,175 @@ window.buatDanaMasukIMS = function() {
     }
   }, 500);
 };
+
+// ===== SINKRON IMS — Dedicated pages for each IMS finance category =====
+
+var IMS_SYNC_CONFIG = {
+  'perjalanan': {
+    label: 'Perjalanan Dinas',
+    keywords: ['perjalanan dinas', 'perdin', 'business trip', 'dinas luar'],
+    defaultKet: 'Perjalanan Dinas - [Tujuan/Keperluan]',
+    info: 'Ajukan permohonan dana untuk kebutuhan perjalanan dinas karyawan, termasuk transportasi, penginapan, dan uang saku.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '✈️ Buka Menu Perjalanan Dinas di IMS'
+  },
+  'penggajian': {
+    label: 'Penggajian',
+    keywords: ['gaji', 'penggajian', 'salary', 'payroll', 'upah'],
+    defaultKet: 'Penggajian - [Bulan/Periode]',
+    info: 'Kelola dan ajukan permohonan dana untuk pembayaran gaji karyawan. Data tersinkron dari menu Penggajian IMS.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '💰 Buka Menu Penggajian di IMS'
+  },
+  'tax-bpjs': {
+    label: 'Tax & BPJS',
+    keywords: ['pajak', 'bpjs', 'pph', 'ppn', 'tax'],
+    defaultKet: 'Tax & BPJS - [Periode]',
+    info: 'Ajukan permohonan dana untuk pembayaran pajak (PPh, PPN) dan iuran BPJS Ketenagakerjaan serta BPJS Kesehatan.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '🧮 Buka Menu Tax & BPJS di IMS'
+  },
+  'insentif': {
+    label: 'Insentif',
+    keywords: ['insentif', 'bonus', 'komisi', 'reward', 'incentive'],
+    defaultKet: 'Insentif - [Nama/Periode]',
+    info: 'Ajukan permohonan dana untuk pembayaran insentif, bonus, dan komisi karyawan berdasarkan data dari IMS.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '🏆 Buka Menu Insentif di IMS'
+  },
+  'reimburse': {
+    label: 'Reimbursement',
+    keywords: ['reimburse', 'reimbursement', 'klaim', 'penggantian biaya'],
+    defaultKet: 'Reimbursement - [Nama/Keperluan]',
+    info: 'Proses penggantian biaya yang sudah dikeluarkan karyawan. Tarik data pengajuan dari menu Reimbursement IMS.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '📋 Buka Menu Reimbursement di IMS'
+  },
+  'kasbon': {
+    label: 'Kasbon & Loan',
+    keywords: ['kasbon', 'loan', 'pinjaman', 'cicilan', 'hutang karyawan'],
+    defaultKet: 'Kasbon & Loan - [Nama Karyawan]',
+    info: 'Kelola pencairan kasbon dan pinjaman karyawan. Data pengajuan diambil dari menu Kasbon & Loan di IMS.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '💳 Buka Menu Kasbon & Loan di IMS'
+  },
+  'tunjangan': {
+    label: 'Tunjangan',
+    keywords: ['tunjangan', 'allowance', 'thr', 'uang makan', 'transport karyawan'],
+    defaultKet: 'Tunjangan - [Jenis/Periode]',
+    info: 'Ajukan permohonan dana untuk pembayaran tunjangan karyawan (THR, uang makan, transport, dll) dari data IMS.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '🎁 Buka Menu Tunjangan di IMS'
+  },
+  'laporan-keuangan': {
+    label: 'Laporan Keuangan IMS',
+    keywords: ['laporan keuangan ims', 'rekap keuangan', 'keuangan ims'],
+    defaultKet: 'Laporan Keuangan IMS - [Periode]',
+    info: 'Rekap dan sinkronisasi laporan keuangan dari sistem IMS. Tarik data untuk diintegrasikan ke jurnal keuangan utama.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '📊 Buka Laporan Keuangan di IMS'
+  }
+};
+
+async function renderIMSSyncPage(categoryKey, icon, title) {
+  var cfg = IMS_SYNC_CONFIG[categoryKey] || {};
+  var keywords = cfg.keywords || [categoryKey];
+  var defaultKet = cfg.defaultKet || (title + ' - [Keterangan]');
+  var info = cfg.info || 'Sinkronisasi data dari IMS.';
+  var imsLink = cfg.imsLink || 'https://hr-legal-app.netlify.app';
+  var imsBtnLabel = cfg.imsBtnLabel || ('🔗 Buka ' + title + ' di IMS');
+
+  var [pdList, dmList] = await Promise.all([
+    KDB.getAll('permohonan'),
+    KDB.getAll('danamasuk')
+  ]);
+
+  function matchKeyword(item) {
+    var text = [item.keterangan, item.ket, item.nama, item.ref, item.noRef, item.judul, item.tujuan, item.kategori]
+      .map(function(v){ return String(v||'').toLowerCase(); }).join(' ');
+    return keywords.some(function(kw){ return text.includes(kw.toLowerCase()); });
+  }
+
+  var matchedPD = (pdList||[]).filter(matchKeyword);
+  var matchedDM = (dmList||[]).filter(matchKeyword);
+  var pendingCount = matchedPD.filter(function(x){ return x.status && x.status.startsWith('Pending'); }).length;
+  var totalNominal = matchedPD.reduce(function(s,x){ return s+(parseFloat(x.jumlah)||parseFloat(x.total)||0); }, 0);
+
+  var pdRows = matchedPD.slice().sort(function(a,b){ return (b.tanggal||'').localeCompare(a.tanggal||''); }).slice(0,8)
+    .map(function(p) {
+      var statusColor = p.status === 'Approved' ? '#065f46' : p.status === 'Rejected' ? '#7f1d1d' : '#92400e';
+      var statusBg   = p.status === 'Approved' ? '#ecfdf5'  : p.status === 'Rejected' ? '#fef2f2'  : '#fffbeb';
+      return '<tr>'
+        + '<td>' + fmtDate(p.tanggal) + '</td>'
+        + '<td>' + (p.keterangan||p.ket||'-') + '</td>'
+        + '<td class="text-right">' + fmtRp(parseFloat(p.jumlah)||parseFloat(p.total)||0) + '</td>'
+        + '<td><span style="background:' + statusBg + ';color:' + statusColor + ';border-radius:10px;padding:2px 9px;font-size:0.73rem;font-weight:600">' + (p.status||'-') + '</span></td>'
+        + '</tr>';
+    }).join('');
+
+  var dmRows = matchedDM.slice().sort(function(a,b){ return (b.tanggal||'').localeCompare(a.tanggal||''); }).slice(0,5)
+    .map(function(d) {
+      return '<tr>'
+        + '<td>' + fmtDate(d.tanggal) + '</td>'
+        + '<td>' + (d.keterangan||d.ket||'-') + '</td>'
+        + '<td class="text-right text-green">' + fmtRp(parseFloat(d.jumlah)||parseFloat(d.total)||0) + '</td>'
+        + '</tr>';
+    }).join('');
+
+  var safeKey = categoryKey.replace(/[^a-z0-9\-]/g,'');
+  var fnName = 'imsSyncPermohonan_' + safeKey.replace(/-/g,'_');
+  window[fnName] = function() {
+    navigate('dana-permohonan');
+    setTimeout(function() {
+      var ketEl = document.getElementById('pd-ket');
+      if (ketEl) { ketEl.value = defaultKet; ketEl.focus(); }
+    }, 500);
+  };
+
+  return '<div class="page-title">' + icon + ' ' + title + ' — Sinkron IMS</div>'
+
+    // Tombol Permohonan Dana — paling atas, prominent
+    + '<button class="ims-sync-permohonan-btn" onclick="' + fnName + '()">'
+    + '📤 Buat Permohonan Dana — ' + title
+    + '</button>'
+
+    // Stats
+    + '<div class="stats-row">'
+    + '<div class="stat-box"><div class="val">' + matchedPD.length + '</div><div class="lbl">Permohonan ' + title + '</div></div>'
+    + '<div class="stat-box green"><div class="val">' + matchedDM.length + '</div><div class="lbl">Dana Masuk ' + title + '</div></div>'
+    + '<div class="stat-box red"><div class="val">' + pendingCount + '</div><div class="lbl">Menunggu Approval</div></div>'
+    + '<div class="stat-box orange"><div class="val">' + fmtRp(totalNominal) + '</div><div class="lbl">Total Permohonan</div></div>'
+    + '</div>'
+
+    // Info
+    + '<div class="alert alert-info" style="margin-bottom:16px">ℹ️ ' + info + '</div>'
+
+    // Tabel Permohonan Dana
+    + '<div class="card">'
+    + '<div class="card-header"><h2>📤 Riwayat Permohonan Dana — ' + title + '</h2>'
+    + '<button class="btn btn-sm btn-outline" onclick="navigate(\'dana-approval\')">Buka Approval Center</button>'
+    + '</div>'
+    + (pdRows
+        ? '<div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Keterangan</th><th>Jumlah</th><th>Status</th></tr></thead><tbody>' + pdRows + '</tbody></table></div>'
+        : '<div class="empty-state"><span class="icon">' + icon + '</span><div>Belum ada permohonan dana untuk ' + title + '</div></div>')
+    + '</div>'
+
+    // Tabel Dana Masuk
+    + '<div class="card">'
+    + '<div class="card-header"><h2>📥 Riwayat Dana Masuk — ' + title + '</h2></div>'
+    + (dmRows
+        ? '<div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Keterangan</th><th>Jumlah</th></tr></thead><tbody>' + dmRows + '</tbody></table></div>'
+        : '<div class="empty-state"><span class="icon">📭</span><div>Belum ada dana masuk untuk ' + title + '</div></div>')
+    + '</div>'
+
+    // Tombol buka IMS
+    + '<div class="card">'
+    + '<div class="card-header"><h2>🔗 Sinkronisasi Data dari Aplikasi IMS</h2></div>'
+    + '<p style="color:#64748b;line-height:1.7;margin-bottom:16px">Data di halaman ini diambil dari koleksi permohonan dan dana masuk yang memiliki kata kunci <b>' + title.toLowerCase() + '</b>. Untuk melihat data lengkap, buka menu ' + title + ' langsung di aplikasi IMS (HR-Legal App).</p>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    + '<a href="' + imsLink + '" target="_blank" rel="noopener" class="btn btn-outline">' + imsBtnLabel + '</a>'
+    + '<button class="btn btn-primary" onclick="' + fnName + '()">📤 Buat Permohonan Dana</button>'
+    + '<button class="btn btn-outline" onclick="navigate(\'dana-approval\')">✅ Buka Approval Center</button>'
+    + '</div>'
+    + '</div>';
+}
