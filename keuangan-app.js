@@ -352,6 +352,61 @@ async function syncDanaMasukLinkedJurnal(danaMasuk) {
   await KDB.save('jurnal', danaMasuk.jurnalId, jurnal);
 }
 
+async function syncLinkedDataJurnalNow() {
+  var pdList = await KDB.getAll('permohonan');
+  var dmList = await KDB.getAll('danamasuk');
+  var jurnal = await KDB.getAll('jurnal');
+  var jurnalMap = {};
+  jurnal.forEach(function(j) { jurnalMap[j.id] = j; });
+
+  var synced = 0;
+  var skipped = 0;
+
+  for (var i = 0; i < pdList.length; i++) {
+    var p = pdList[i];
+    if (!p || !p.jurnalId) continue;
+    var jp = jurnalMap[p.jurnalId];
+    if (!jp) { skipped++; continue; }
+    var expectedDate = p.jatuhTempo || p.tanggal || '';
+    var expectedRef = p.noPOInvoice || p.id || '';
+    var expectedAmount = parseFloat(p.nominal) || 0;
+    var expectedDebit = p.akunDebit || '5-2200';
+    var expectedKredit = p.akunKredit || '1-1100';
+    var lineAkun = (jp.lines || []).map(function(l) { return l.akun; });
+    var mismatch = jp.tanggal !== expectedDate
+      || (jp.noRef || '') !== expectedRef
+      || Math.abs((parseFloat(jp.totalDebit) || 0) - expectedAmount) > 0.01
+      || lineAkun.indexOf(expectedDebit) === -1
+      || lineAkun.indexOf(expectedKredit) === -1;
+    if (!mismatch) continue;
+    await syncPermohonanLinkedJurnal(p);
+    synced++;
+  }
+
+  for (var d = 0; d < dmList.length; d++) {
+    var dm = dmList[d];
+    if (!dm || !dm.jurnalId) continue;
+    var jd = jurnalMap[dm.jurnalId];
+    if (!jd) { skipped++; continue; }
+    var expectedDateDM = dm.tanggal || '';
+    var expectedRefDM = dm.noRef || dm.id || '';
+    var expectedAmountDM = parseFloat(dm.nominal) || 0;
+    var expectedDebitDM = dm.akunTerima || '1-1100';
+    var expectedKreditDM = dm.kategori && (dm.kategori.startsWith('4-') || dm.kategori.startsWith('3-') || dm.kategori.startsWith('1-')) ? dm.kategori : '4-2000';
+    var lineAkunDM = (jd.lines || []).map(function(l) { return l.akun; });
+    var mismatchDM = jd.tanggal !== expectedDateDM
+      || (jd.noRef || '') !== expectedRefDM
+      || Math.abs((parseFloat(jd.totalDebit) || 0) - expectedAmountDM) > 0.01
+      || lineAkunDM.indexOf(expectedDebitDM) === -1
+      || lineAkunDM.indexOf(expectedKreditDM) === -1;
+    if (!mismatchDM) continue;
+    await syncDanaMasukLinkedJurnal(dm);
+    synced++;
+  }
+
+  return { synced: synced, skipped: skipped };
+}
+
 function findPreferredBankAccountCode(akunList, bankName, fallbackKode) {
   var fallback = fallbackKode || '1-1101-2';
   var lower = normalizeCompareText(bankName);
@@ -10870,6 +10925,10 @@ function renderActionConfirmation(action) {
     html += '<div style="font-size:0.85rem;margin-bottom:8px">'
       + '<b>Sinkronisasi Petty Cash → Jurnal</b><br>'
       + 'Membuat jurnal otomatis untuk semua transaksi petty cash yang belum terintegrasi.</div>';
+  } else if (action.type === 'sync_data_links') {
+    html += '<div style="font-size:0.85rem;margin-bottom:8px">'
+      + '<b>Sinkronisasi Data Link Transaksi</b><br>'
+      + 'Menyelaraskan data permohonan/dana masuk dengan jurnal yang sudah terhubung agar tanggal, referensi, akun, dan nominal tetap konsisten.</div>';
   } else {
     html += '<div style="font-size:0.85rem">Aksi: ' + JSON.stringify(action) + '</div>';
   }
@@ -11018,6 +11077,11 @@ async function eksekusiAIAction() {
       }
       chatEl.innerHTML += '<div style="display:flex;margin:8px 0"><div style="background:#c8e6c9;padding:8px 14px;border-radius:8px;font-size:0.85rem">✅ Sinkronisasi selesai! ' + syncCount + ' transaksi petty cash dibuatkan jurnal.</div></div>';
       showAlert(syncCount + ' transaksi petty cash disinkronkan!');
+
+    } else if (action.type === 'sync_data_links') {
+      var syncResult = await syncLinkedDataJurnalNow();
+      chatEl.innerHTML += '<div style="display:flex;margin:8px 0"><div style="background:#c8e6c9;padding:8px 14px;border-radius:8px;font-size:0.85rem">✅ Sinkronisasi data selesai! ' + syncResult.synced + ' link transaksi-jurnal diperbarui' + (syncResult.skipped ? ', ' + syncResult.skipped + ' dilewati (jurnal tidak ditemukan)' : '') + '.</div></div>';
+      showAlert('Sinkronisasi data selesai: ' + syncResult.synced + ' item diperbarui' + (syncResult.skipped ? ', ' + syncResult.skipped + ' dilewati' : '') + '.');
 
     } else {
       showAlert('Tipe aksi tidak dikenali: ' + action.type, 'warning');
@@ -11218,7 +11282,8 @@ async function callOpenRouterChat(msg, apiKey) {
       + '- "buatkan jurnal", "buat jurnal", "catat", "input jurnal" → buat jurnal baru\n'
       + '- "hapus", "delete", "buang", "hilangkan" → hapus jurnal\n'
       + '- "koreksi", "perbaiki", "fix", "betulkan", "revisi" → koreksi/edit jurnal\n'
-      + '- "sinkronkan", "sync", "pindahkan akun", "ganti akun" → reklasifikasi akun\n'
+      + '- "sinkronkan data", "sync data", "sinkronkan link", "sinkronkan jurnal terkait", "singkronkan data" → sinkronisasi link data transaksi-jurnal\n'
+      + '- "pindahkan akun", "ganti akun", "reklasifikasi" → reklasifikasi akun\n'
       + '- "top up", "isi kas", "tambah saldo" → top-up petty cash\n'
       + '- "bayar", "keluarkan", "pengeluaran" → pengeluaran petty cash\n'
       + '- "cek saldo", "berapa saldo", "posisi saldo" → tampilkan informasi saldo\n'
@@ -11243,7 +11308,8 @@ async function callOpenRouterChat(msg, apiKey) {
       + '###ACTION:{"type":"reklasifikasi","jurnal_id":"...","akun_asal":"kode","akun_tujuan":"kode"}###\n'
       + '###ACTION:{"type":"hapus_jurnal","id":"jurnal_id","alasan":"..."}###\n'
       + '###ACTION:{"type":"fix_coa_jurnal","akun_lama":"kode","akun_baru":"kode"}###\n'
-      + '###ACTION:{"type":"sinkron_pc"}###\n\n'
+      + '###ACTION:{"type":"sinkron_pc"}###\n'
+      + '###ACTION:{"type":"sync_data_links"}###\n\n'
       + 'Konteks data:\n' + konteks;
 
     // Bangun messages dengan history chat (max 10 pesan terakhir)
@@ -11380,6 +11446,14 @@ async function localAIReply(msg) {
         + '###ACTION:{"type":"jurnal","tanggal":"' + today() + '","keterangan":"' + ket.replace(/"/g,'\\"') + '","lines":[{"akun":"' + akunDebit + '","ket":"' + ket.replace(/"/g,'\\"') + '","debit":' + nominal + ',"kredit":0},{"akun":"' + akunKredit + '","ket":"Kas keluar","debit":0,"kredit":' + nominal + '}]}###';
     }
     return 'Untuk membuat jurnal, sebutkan nominal dan keterangan. Contoh:\n"Buatkan jurnal beban listrik 500000"';
+  }
+
+  if ((lower.includes('sinkron') || lower.includes('sinkronkan') || lower.includes('sync') || lower.includes('singkron') || lower.includes('singkronkan'))
+      && (lower.includes('data') || lower.includes('link') || lower.includes('jurnal') || lower.includes('transaksi'))) {
+    return 'Saya akan cek dan sinkronkan link data transaksi dengan jurnal sekarang.\n'
+      + 'Jika ada data yang belum sinkron, sistem akan otomatis diperbarui.\n\n'
+      + 'Klik Konfirmasi untuk eksekusi.\n'
+      + '###ACTION:{"type":"sync_data_links"}###';
   }
 
   // Deteksi perintah topup petty cash
