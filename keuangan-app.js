@@ -932,7 +932,7 @@ function buildSidebar() {
   function canShowItem(item, groupName) {
     if (!hasRole(item.minRole)) return false;
     if (isNanda && groupName === 'Transaksi') return item.id === 'portal-aset';
-    if (isBOD && groupName === 'Transaksi') return item.id === 'dana-approval' || isIMSMenuItem(item);
+    if (isBOD && groupName === 'Transaksi') return item.id === 'dana-approval';
     if (isLimited && groupName === 'Transaksi') return item.id === 'dana-approval' || isIMSMenuItem(item);
     if (isBOD && groupName === 'Laporan') return ['lap-dashboard', 'lap-labarugi', 'lap-neraca', 'lap-aruskas', 'lap-print-bundle'].includes(item.id);
     if (isLimited && groupName === 'Laporan') return ['lap-dashboard', 'lap-print-bundle'].includes(item.id);
