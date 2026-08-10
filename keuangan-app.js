@@ -353,9 +353,14 @@ async function syncDanaMasukLinkedJurnal(danaMasuk) {
 }
 
 async function syncLinkedDataJurnalNow() {
-  var pdList = await KDB.getAll('permohonan');
-  var dmList = await KDB.getAll('danamasuk');
-  var jurnal = await KDB.getAll('jurnal');
+  var loaded = await Promise.all([
+    KDB.getAll('permohonan'),
+    KDB.getAll('danamasuk'),
+    KDB.getAll('jurnal')
+  ]);
+  var pdList = loaded[0];
+  var dmList = loaded[1];
+  var jurnal = loaded[2];
   var jurnalMap = {};
   jurnal.forEach(function(j) { jurnalMap[j.id] = j; });
 
@@ -11448,8 +11453,8 @@ async function localAIReply(msg) {
     return 'Untuk membuat jurnal, sebutkan nominal dan keterangan. Contoh:\n"Buatkan jurnal beban listrik 500000"';
   }
 
-  if ((lower.includes('sinkron') || lower.includes('sinkronkan') || lower.includes('sync') || lower.includes('singkron') || lower.includes('singkronkan'))
-      && (lower.includes('data') || lower.includes('link') || lower.includes('jurnal') || lower.includes('transaksi'))) {
+  if ((lower.includes('sinkron') || lower.includes('sync') || lower.includes('singkron'))
+      && (lower.includes('data') || lower.includes('link') || lower.includes('terkait') || lower.includes('didalamnya') || lower.includes('di dalamnya'))) {
     return 'Saya akan cek dan sinkronkan link data transaksi dengan jurnal sekarang.\n'
       + 'Jika ada data yang belum sinkron, sistem akan otomatis diperbarui.\n\n'
       + 'Klik Konfirmasi untuk eksekusi.\n'
