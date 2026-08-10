@@ -46,13 +46,6 @@ const MENU = [
     { id: 'dana-permohonan', label: 'Permohonan Dana', icon: '📤', minRole: 'viewer' },
     { id: 'dana-masuk',      label: 'Dana Masuk',      icon: '📥', minRole: 'viewer' },
     { id: 'dana-approval',   label: 'Approval Center', icon: '✅', minRole: 'viewer' },
-    { id: 'ims-menu-keu',    label: 'Keuangan IMS',    icon: '🏢', minRole: 'viewer', items: [
-      { id: 'ims-finance',        label: 'Dashboard IMS',          icon: '📊', minRole: 'viewer' },
-      { id: 'kalk-inventori-atk', label: 'Inventori Stok ATK',     icon: '📋', minRole: 'viewer' },
-      { id: 'ims-sub-keu',        label: 'Transaksi Keuangan IMS', icon: '💰', minRole: 'viewer' },
-      { id: 'ims-sync-perjalanan',label: 'Perjalanan Dinas IMS',   icon: '✈️', minRole: 'viewer' },
-      { id: 'ims-sync-lap-keu',   label: 'Laporan Keuangan IMS',   icon: '📑', minRole: 'viewer' },
-    ]},
     { id: 'portal-aset',     label: 'Portal Perlengkapan & Aset', icon: '📦', minRole: 'viewer' },
   ]},
   { group: 'Jurnal', icon: '📝', items: [
@@ -94,7 +87,7 @@ const MENU = [
     { id: 'kalk-gaji',          label: 'Gaji / Salary',          icon: '👔', minRole: 'admin' },
     { id: 'kalk-hpp',           label: 'Hitung HPP',             icon: '🏭', minRole: 'admin' },
   ]},
-  { group: 'Sinkron IMS', icon: '🔗', items: [
+  { group: 'Sinkron HR-Legal', icon: '🔗', items: [
     { id: 'ims-sync-perjalanan',   label: 'Perjalanan Dinas',   icon: '✈️',  minRole: 'viewer' },
     { id: 'ims-sync-penggajian',   label: 'Penggajian',         icon: '💰',  minRole: 'viewer' },
     { id: 'ims-sync-tax-bpjs',     label: 'Tax & BPJS',         icon: '🧮',  minRole: 'viewer' },
@@ -102,7 +95,6 @@ const MENU = [
     { id: 'ims-sync-reimburse',    label: 'Reimbursement',      icon: '📋',  minRole: 'viewer' },
     { id: 'ims-sync-kasbon',       label: 'Kasbon & Loan',      icon: '💳',  minRole: 'viewer' },
     { id: 'ims-sync-tunjangan',    label: 'Tunjangan',          icon: '🎁',  minRole: 'viewer' },
-    { id: 'ims-sync-lap-keu',      label: 'Laporan Keuangan',   icon: '📊',  minRole: 'viewer' },
   ]},
   { group: 'Bantuan', icon: '❓', items: [
     { id: 'bantuan', label: 'Cara Penggunaan', icon: '📖', minRole: 'viewer' },
@@ -949,8 +941,8 @@ function buildSidebar() {
     if (isBOD && groupName === 'Laporan') return ['lap-dashboard', 'lap-labarugi', 'lap-neraca', 'lap-aruskas', 'lap-print-bundle'].includes(item.id);
     if (isLimited && groupName === 'Laporan') return ['lap-dashboard', 'lap-print-bundle'].includes(item.id);
     if ((isBOD || isLimited) && groupName === 'Monitor') return item.id.startsWith('monitor-');
-    if (isNanda) return groupName === 'Bantuan' || groupName === 'Sinkron IMS';
-    if (isBOD || isLimited) return groupName === 'Bantuan' || groupName === 'Sinkron IMS';
+    if (isNanda) return groupName === 'Bantuan' || groupName === 'Sinkron HR-Legal';
+    if (isBOD || isLimited) return groupName === 'Bantuan' || groupName === 'Sinkron HR-Legal';
     return true;
   }
 
@@ -17054,8 +17046,7 @@ async function renderIMSFinance() {
     { id: 'ims-sync-insentif', icon: '🏆', title: 'Insentif', desc: 'Sinkron bonus, komisi, dan insentif karyawan.' },
     { id: 'ims-sync-reimburse', icon: '📋', title: 'Reimbursement', desc: 'Sinkron penggantian biaya dari pengajuan IMS.' },
     { id: 'ims-sync-kasbon', icon: '💳', title: 'Kasbon & Loan', desc: 'Sinkron pencairan kasbon dan pinjaman karyawan.' },
-    { id: 'ims-sync-tunjangan', icon: '🎁', title: 'Tunjangan', desc: 'Sinkron tunjangan, THR, makan, dan transport.' },
-    { id: 'ims-sync-lap-keu', icon: '📊', title: 'Laporan Keuangan', desc: 'Sinkron rekap laporan keuangan dari IMS.' }
+    { id: 'ims-sync-tunjangan', icon: '🎁', title: 'Tunjangan', desc: 'Sinkron tunjangan, THR, makan, dan transport.' }
   ];
   const syncMenuCards = syncMenus.map(function(menu) {
     return '<button class="card" style="text-align:left;padding:16px;border:1px solid var(--border);cursor:pointer;background:#fff" onclick="navigate(\'' + menu.id + '\')">'
@@ -17075,7 +17066,7 @@ async function renderIMSFinance() {
     + '    <div class="stat-box"><div class="val">' + ((atkList || []).length) + '</div><div class="lbl">Item Inventori ATK</div></div>'
     + '    <div class="stat-box red"><div class="val">' + pendingIMS + '</div><div class="lbl">Pending Approval IMS</div></div>'
     + '  </div>'
-    + '  <div class="alert alert-info">Menu yang disinkronkan dari IMS mencakup semua menu keuangan dan Perjalanan Dinas, jadi tampilannya sekarang dipusatkan di halaman ini dan menu Sinkron IMS.</div>'
+    + '  <div class="alert alert-info">Menu sinkron HR-Legal (termasuk Perjalanan Dinas) dipusatkan dalam satu bagian agar alur data keuangan, approval, dan jurnal tetap terintegrasi.</div>'
     + '  <div style="display:flex; gap:12px; margin-top:16px; flex-wrap:wrap">'
     + '    <button class="btn btn-primary" onclick="navigate(\'ims-sub-keu\')">💰 Buka Transaksi IMS</button>'
     + '    <button class="btn btn-outline" onclick="navigate(\'kalk-inventori-atk\')">📋 Buka Inventori ATK</button>'
@@ -17083,7 +17074,7 @@ async function renderIMSFinance() {
     + '  </div>'
     + '</div>'
     + '<div class="card">'
-    + '  <div class="card-header"><h2>Semua Menu Sinkron IMS</h2></div>'
+    + '  <div class="card-header"><h2>Semua Menu Sinkron HR-Legal</h2></div>'
     + '  <div class="responsive-grid-2">' + syncMenuCards + '</div>'
     + '</div>'
     + '<div class="card">'
@@ -17316,7 +17307,7 @@ async function renderIMSSyncPage(categoryKey, icon, title) {
     };
   }
 
-  return '<div class="page-title">' + icon + ' ' + title + ' — Sinkron IMS</div>'
+  return '<div class="page-title">' + icon + ' ' + title + ' — Sinkron HR-Legal</div>'
 
     // Tombol Permohonan Dana — paling atas, prominent
     + '<button class="ims-sync-permohonan-btn" onclick="' + fnName + '()">'
