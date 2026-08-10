@@ -20,7 +20,7 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
 <title>Sistem Keuangan IJEF Corp</title>
-<link rel="manifest" href="manifest.json?v=20260810">
+<link rel="manifest" href="manifest.json?v=20260810v3">
 <meta name="theme-color" content="#a30000">
 <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -54,11 +54,12 @@ html, body {
 }
 
 /* APP WRAPPER */
-#app-root {
-  width: 100%;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+#viewport-wrapper {
+  width: 100% !important;
+  min-height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: visible !important;
 }
 
 /* LOGIN SCREEN */
@@ -82,11 +83,12 @@ html, body {
   box-shadow: 0 20px 60px rgba(0,0,0,0.55);
 }
 .login-logo { text-align: center; margin-bottom: 24px; }
-.login-logo img { width: 100px; height: 100px; margin-bottom: 12px; border-radius: 12px; }
+#login-logo-container { width: 100px; height: 100px; margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; }
+#login-logo-container img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 12px; }
 .login-logo h1 { color: var(--ijef-primary); font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.5rem; font-weight: 700; }
 
 /* APP LAYOUT */
-#app { display: none; flex: 1; flex-direction: column; }
+#app { display: none; flex: 1; flex-direction: column; min-height: 100vh; }
 .app-header {
   background: var(--ijef-dark);
   color: white;
@@ -99,7 +101,7 @@ html, body {
   z-index: 2000;
   border-bottom: 2px solid var(--ijef-primary);
 }
-.app-body { display: flex; flex: 1; position: relative; }
+.app-body { display: flex; flex: 1; position: relative; min-height: calc(100vh - 52px); }
 
 /* SIDEBAR */
 .sidebar {
@@ -122,45 +124,112 @@ html, body {
   padding: 24px;
   min-width: 0;
   background: var(--ijef-bg);
+  padding-bottom: 100px !important;
 }
+.section { display: none; }
+.section.active { display: block; }
+
+/* SIDEBAR ITEMS */
+.sidebar-group { padding: 8px 0; }
+.sidebar-group-title { font-size: 0.7rem; font-weight: 700; color: rgba(255,255,255,0.45); padding: 8px 16px 4px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.sidebar-item { display: flex; align-items: center; gap: 8px; padding: 9px 16px; cursor: pointer; font-size: 0.85rem; color: rgba(255,255,255,0.75); transition: background 0.15s; border-left: 3px solid transparent; }
+.sidebar-item:hover { background: rgba(255,255,255,0.06); color: #ffffff; }
+.sidebar-item.active { background: rgba(163,0,0,0.12); border-left-color: var(--ijef-primary); color: white; font-weight: 600; }
+.sidebar-item .icon { font-size: 1rem; width: 20px; text-align: center; }
+.sidebar-subgroup { overflow: hidden; }
+.sidebar-submenu { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; background: rgba(0,0,0,0.1); }
+.sidebar-item.sub { padding-left: 32px; font-size: 0.82rem; }
+.sidebar-sub-arrow { font-size: 0.5rem; transition: transform 0.2s; margin-left: auto; }
+.sidebar-subgroup.expanded > .sidebar-item .sidebar-sub-arrow { transform: rotate(90deg); }
+.sidebar-subgroup.expanded > .sidebar-submenu { max-height: 2000px !important; }
+.sidebar-group.expanded > .sidebar-group-items { max-height: 2000px !important; }
+.sidebar-group-arrow { font-size: 0.55rem; transition: transform 0.25s ease; display: inline-block; width: 10px; text-align: center; margin-left: auto; }
+.sidebar-group.expanded .sidebar-group-arrow { transform: rotate(180deg); }
+.sidebar-group-items { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+
+/* STATS & CARDS */
+.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.stat-box { background: white; border-radius: 12px; padding: 20px; border-left: 4px solid var(--ijef-primary); border: 1px solid #e2e8f0; }
+.stat-box.green { border-left-color: #10b981; }
+.stat-box.red { border-left-color: #f43f5e; }
+.stat-box.orange { border-left-color: #ff9800; }
+.stat-box.purple { border-left-color: #9c27b0; }
+.stat-box .val { font-size: 1.45rem; font-weight: 700; color: var(--ijef-primary); }
+.stat-box .val-large { font-size: 1.85rem; font-weight: 800; color: var(--ijef-primary); }
+.stat-box.green .val, .stat-box.green .val-large { color: #10b981; }
+.stat-box .lbl { font-size: 0.72rem; color: #64748b; margin-top: 4px; text-transform: uppercase; font-weight: 500; }
+
+.saldo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.saldo-card-val { font-size: 1.15rem !important; }
+
+/* GRID UTILS */
+.responsive-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+@media (max-width: 768px) { .responsive-grid-2 { grid-template-columns: 1fr; } }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+@media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } .form-grid.cols3 { grid-template-columns: 1fr; } }
+.fg { display: flex; flex-direction: column; gap: 4px; }
+.fg label { font-size: 0.8rem; font-weight: 600; color: #475569; }
+.fg input, .fg select, .fg textarea { padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.88rem; transition: border-color 0.2s; }
+.fg input:focus { border-color: var(--ijef-primary); outline: none; }
+
+/* HAMBURGER & BUTTONS */
+.hamburger { background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; padding: 4px; display: block; }
+.hamburger:hover { background: rgba(255,255,255,0.1); border-radius: 4px; }
 
 /* RESPONSIVE RULES */
 @media (max-width: 1024px) {
   .sidebar {
     position: fixed;
     left: 0;
+    top: 52px;
+    height: calc(100vh - 52px);
     transform: translateX(-100%);
   }
-  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar.mobile-open { transform: translateX(0); box-shadow: 10px 0 30px rgba(0,0,0,0.3); }
 }
 
 @media (max-width: 600px) {
-  .main-content { padding: 12px; padding-bottom: 80px; }
+  .main-content { padding: 12px; padding-bottom: 80px !important; }
   .app-header h1 { font-size: 1rem; }
   .user-info { display: none; }
 }
 
-/* ORIENTATION SPECIFIC HACKS */
-@media screen and (orientation: landscape) and (max-height: 500px) {
-  .app-header { padding: 8px 16px; }
-  .sidebar { top: 40px; height: calc(100vh - 40px); }
-  .login-box { padding: 20px; }
-}
-
-/* REUSABLE COMPONENTS */
+/* REUSABLE COMPONENTS (Restored from old CSS for compatibility) */
 .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-.btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
-.btn-primary { background: var(--ijef-primary); color: white; }
-.table-wrap { width: 100%; overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: 12px; border-bottom: 1px solid #f1f5f9; text-align: left; }
-th { background: #f8fafc; font-weight: 600; }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9; }
+.card-header h2 { color: var(--ijef-primary); font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
 
-/* LOADING & OVERLAYS */
-.loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; }
+.btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; }
+.btn:active { transform: scale(0.96); }
+.btn-primary { background: var(--ijef-primary); color: white; }
+.btn-outline { background: white; border: 1.5px solid var(--ijef-primary); color: var(--ijef-primary); }
+.btn-sm { padding: 5px 11px; font-size: 0.78rem; }
+.btn-xs { padding: 3px 8px; font-size: 0.74rem; }
+
+.table-wrap { width: 100%; overflow-x: auto; background: white; border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th, td { padding: 12px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+th { background: var(--ijef-dark); color: white; font-weight: 600; }
+tr:hover td { background: rgba(163,0,0,0.02); }
+
+.role-chip { font-size: 0.7rem; font-weight: 700; padding: 3px 9px; border-radius: 10px; margin-left: 8px; }
+.role-superadmin { background: var(--ijef-primary); color: white; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.73rem; font-weight: 600; }
+.badge-success { background: #ecfdf5; color: #065f46; }
+.badge-danger { background: #fff1f2; color: #9f1239; }
+
+.loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.85); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; }
 .loading-overlay.show { display: flex; }
 .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--ijef-primary); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* MODAL */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 3000; align-items: center; justify-content: center; padding: 16px; }
+.modal-overlay.open { display: flex; }
+.modal { background: white; border-radius: 14px; padding: 24px; width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; }
+.modal h3 { color: var(--ijef-primary); margin-bottom: 16px; }
 
 /* BOTTOM NAV (MOBILE) */
 #app-bottom-nav {
@@ -173,19 +242,24 @@ th { background: #f8fafc; font-weight: 600; }
   z-index: 2000;
   justify-content: space-around;
   align-items: center;
+  box-shadow: 0 -4px 15px rgba(0,0,0,0.3);
 }
 @media (max-width: 768px) { #app-bottom-nav { display: flex; } }
 
 /* UTILS */
-.text-green { color: #10b981; }
-.text-red { color: #f43f5e; }
-.fw-bold { font-weight: 700; }
-.text-right { text-align: right; }
+.text-green { color: #10b981 !important; }
+.text-red { color: #f43f5e !important; }
+.fw-bold { font-weight: 700 !important; }
+.text-right { text-align: right !important; }
+.text-muted { color: #888; }
+.alert { padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
+.alert-info { background: #eff6ff; color: #1e40af; border-left: 4px solid #3b82f6; }
+.alert-warning { background: #fff8e1; color: #e65100; border-left: 4px solid #ff9800; }
 </style>
 </head>
-<body class="orientation-portrait">
+<body>
 
-<div id="app-root">
+<div id="viewport-wrapper">
   <!-- LOADING -->
   <div class="loading-overlay" id="loading-overlay">
     <div class="spinner"></div>
@@ -196,20 +270,21 @@ th { background: #f8fafc; font-weight: 600; }
   <div id="login-screen">
     <div class="login-box">
       <div class="login-logo">
-        <img src="icons/icon-512x512.png" alt="Logo">
+        <div id="login-logo-container"><img src="icons/icon-512x512.png" alt="Logo"></div>
         <h1>Sistem Keuangan</h1>
         <p style="color:#64748b; font-size:0.9rem">IJEF Corp — Financial Management</p>
       </div>
-      <div style="margin-bottom:16px">
-        <label style="display:block; margin-bottom:6px; font-weight:600; font-size:0.85rem">Username</label>
-        <input type="text" id="login-user" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px">
+      <div style="margin-bottom:14px">
+        <label style="display:block; margin-bottom:5px; font-weight:600; font-size:0.82rem; color:#475569">Username</label>
+        <input type="text" id="login-user" style="width:100%; padding:10px 13px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.93rem" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
       <div style="margin-bottom:20px">
-        <label style="display:block; margin-bottom:6px; font-weight:600; font-size:0.85rem">Password</label>
-        <input type="password" id="login-pass" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px">
+        <label style="display:block; margin-bottom:5px; font-weight:600; font-size:0.82rem; color:#475569">Password</label>
+        <input type="password" id="login-pass" style="width:100%; padding:10px 13px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.93rem" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
-      <button class="btn btn-primary" style="width:100%; justify-content:center; padding:12px" onclick="doLogin()">Masuk Ke Sistem</button>
-      <p id="login-error" style="color:red; text-align:center; margin-top:12px; display:none; font-size:0.85rem">Username atau password salah!</p>
+      <button class="btn btn-primary" style="width:100%; justify-content:center; padding:12px; font-size:1rem" onclick="doLogin()">Masuk Ke Sistem</button>
+      <p id="login-error" style="color:#ea4335; text-align:center; margin-top:12px; display:none; font-size:0.82rem">Username atau password salah!</p>
+      <div style="text-align:center; margin-top:16px; font-size:0.8rem; color:#94a3b8">v1.0 &copy; 2026 IJEF Corp</div>
     </div>
   </div>
 
@@ -218,14 +293,19 @@ th { background: #f8fafc; font-weight: 600; }
     <div class="app-header">
       <div style="display:flex; align-items:center; gap:12px">
         <button class="btn" style="background:none; color:white; font-size:1.5rem; padding:4px" onclick="toggleSidebar()">☰</button>
+        <button id="btn-back" onclick="goBack()" style="display:none; background:none; border:none; color:white; font-size:1.3rem; cursor:pointer; padding:4px 8px;">⬅</button>
         <div onclick="navigate('lap-dashboard')" style="display:flex; align-items:center; gap:8px; cursor:pointer">
-          <img src="icons/icon-192x192.png" style="width:32px; height:32px; object-fit:contain" alt="Logo">
-          <h1 style="font-family:'Plus Jakarta Sans', sans-serif">Sistem Keuangan IJEF</h1>
+          <div id="app-logo-container" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center;"><img src="icons/icon-192x192.png" style="max-width:100%; max-height:100%" alt="Logo"></div>
+          <h1 style="font-family:'Plus Jakarta Sans', sans-serif; font-size:1.15rem; font-weight:700">Sistem Keuangan IJEF</h1>
         </div>
       </div>
-      <div style="display:flex; align-items:center; gap:12px">
-        <span class="user-info" id="header-user" style="font-size:0.85rem; background:rgba(255,255,255,0.1); padding:4px 12px; border-radius:12px">-</span>
-        <button class="btn" style="background:rgba(255,255,255,0.1); color:white; font-size:0.85rem" onclick="doLogout()">Keluar</button>
+      <div style="display:flex; align-items:center; gap:10px">
+        <span class="user-info" id="header-user" style="font-size:0.82rem; background:rgba(255,255,255,0.08); padding:5px 12px; border-radius:16px; font-weight:500">-</span>
+        <span class="role-chip" id="header-role">-</span>
+        <button onclick="showNotifPanel()" style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); color:white; padding:5px 12px; border-radius:7px; cursor:pointer; font-size:0.9rem; position:relative">
+          🔔 <span id="notif-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#f44336; color:white; border-radius:50%; width:18px; height:18px; font-size:0.65rem; font-weight:700; display:flex; align-items:center; justify-content:center; line-height:1"></span>
+        </button>
+        <button class="btn" style="background:rgba(255,255,255,0.08); color:white; font-size:0.82rem; border:1px solid rgba(255,255,255,0.15)" onclick="doLogout()">Keluar</button>
       </div>
     </div>
     <div class="app-body">
@@ -235,37 +315,50 @@ th { background: #f8fafc; font-weight: 600; }
 
     <!-- MOBILE BOTTOM NAV -->
     <div id="app-bottom-nav">
-      <button onclick="navigate('lap-dashboard')" style="background:none; border:none; color:white; display:flex; flex-direction:column; align-items:center; font-size:0.7rem">
-        <span style="font-size:1.2rem">🏠</span> Dashboard
+      <button onclick="navigate('lap-dashboard')" style="background:none; border:none; color:#b0bec5; display:flex; flex-direction:column; align-items:center; font-size:0.72rem; cursor:pointer">
+        <span style="font-size:1.35rem">🏠</span> Dashboard
       </button>
-      <button onclick="navigate('jurnal-umum')" style="background:none; border:none; color:white; display:flex; flex-direction:column; align-items:center; font-size:0.7rem">
-        <span style="font-size:1.2rem">📝</span> Jurnal
+      <button onclick="navigate('jurnal-umum')" style="background:none; border:none; color:#b0bec5; display:flex; flex-direction:column; align-items:center; font-size:0.72rem; cursor:pointer">
+        <span style="font-size:1.35rem">📝</span> Jurnal
       </button>
-      <button onclick="navigate('lap-print-bundle')" style="background:none; border:none; color:white; display:flex; flex-direction:column; align-items:center; font-size:0.7rem">
-        <span style="font-size:1.2rem">📄</span> Laporan
+      <button onclick="navigate('lap-print-bundle')" style="background:none; border:none; color:#b0bec5; display:flex; flex-direction:column; align-items:center; font-size:0.72rem; cursor:pointer">
+        <span style="font-size:1.35rem">📄</span> Laporan
       </button>
-      <button onclick="toggleSidebar()" style="background:none; border:none; color:white; display:flex; flex-direction:column; align-items:center; font-size:0.7rem">
-        <span style="font-size:1.2rem">☰</span> Menu
+      <button onclick="toggleSidebar()" style="background:none; border:none; color:#b0bec5; display:flex; flex-direction:column; align-items:center; font-size:0.72rem; cursor:pointer">
+        <span style="font-size:1.35rem">☰</span> Menu
       </button>
     </div>
   </div>
 </div>
 
+<!-- MODAL CONTAINER -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal-box">
+    <div id="modal-content"></div>
+  </div>
+</div>
+
 <script src="keuangan-firebase.js"></script>
-<script src="keuangan-app.js?v=20260810-v2-rotate-final"></script>
+<script src="keuangan-app.js?v=20260810-v3-fix"></script>
 <script>
 // Orientation & Resize Handler
 function handleResize() {
   const isPortrait = window.innerHeight > window.innerWidth;
   document.body.className = isPortrait ? 'orientation-portrait' : 'orientation-landscape';
   
-  // Update sidebar visibility based on width
-  const sidebar = document.getElementById('sidebar');
-  if (window.innerWidth > 1024) {
-    if (sidebar) sidebar.classList.remove('mobile-open');
+  // Set explicit classes for specific JS logic in keuangan-app.js
+  if (window.innerWidth <= 600) {
+    document.body.classList.add('preview-mode-mobile');
+    document.body.classList.remove('preview-mode-tablet', 'preview-mode-desktop');
+  } else if (window.innerWidth <= 1024) {
+    document.body.classList.add('preview-mode-tablet');
+    document.body.classList.remove('preview-mode-mobile', 'preview-mode-desktop');
+  } else {
+    document.body.classList.add('preview-mode-desktop');
+    document.body.classList.remove('preview-mode-mobile', 'preview-mode-tablet');
   }
   
-  // Dispatch resize event to trigger chart re-renders in keuangan-app.js
+  // Dispatch resize event to trigger chart re-renders
   setTimeout(function() {
     window.dispatchEvent(new Event('resize-charts'));
   }, 300);
@@ -273,7 +366,7 @@ function handleResize() {
 
 window.addEventListener('resize', handleResize);
 window.addEventListener('orientationchange', function() {
-  setTimeout(handleResize, 300);
+  setTimeout(handleResize, 350);
 });
 
 window.addEventListener('load', function() {
@@ -294,7 +387,7 @@ window.addEventListener('load', function() {
         }
       }
     } catch(e) { console.error('Balance auto-fix error:', e); }
-  }, 2000);
+  }, 2500);
 });
 
 function togglePwd(id, btn) {
