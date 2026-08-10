@@ -60,7 +60,7 @@
   }, true);
 })();
 </script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
 <title>Sistem Keuangan IJEF Corp - v20260727</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#a30000">
@@ -825,43 +825,47 @@ textarea{resize:vertical;min-height:70px}
 
 /* PREVIEW DEVICE SIMULATOR AND OVERRIDES */
 #viewport-wrapper {
-  width: 100vw !important;
-  height: 100vh !important;
-  position: fixed !important;
+  width: 100% !important;
+  min-height: 100vh !important;
+  position: relative !important;
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  overflow: hidden !important;
-  transition: background 0.4s ease, padding 0.3s ease, height 0.3s ease, top 0.3s ease;
+  display: block !important;
+  overflow: visible !important;
+  transition: none !important;
   box-sizing: border-box !important;
 }
 
-/* Playground dotted grid pattern for simulated background */
+/* Playground dotted grid pattern - disabled by default for cleaner mobile experience */
 .simulation-canvas-bg {
-  background-color: #0f172a !important;
-  background-image: radial-gradient(#334155 1.5px, transparent 1.5px) !important;
-  background-size: 24px 24px !important;
+  background-color: transparent !important;
+  background-image: none !important;
 }
 
 #viewport-scaler {
   position: relative;
-  overflow: hidden;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 100vh !important;
+  overflow: visible !important;
   box-sizing: border-box;
   background: transparent;
-  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), border-radius 0.4s ease, border-width 0.4s ease, box-shadow 0.4s ease, width 0.4s ease, height 0.4s ease;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
+  transform: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  display: block !important;
 }
 
 #app-viewport {
-  width: 100%;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 100vh !important;
   position: relative;
   box-sizing: border-box;
-  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: none !important;
+  margin: 0 !important;
 }
 
 /* Force container limits to perfectly fit simulator frames */
@@ -2043,6 +2047,32 @@ window.addEventListener('load', function() {
   
   setTimeout(populateQuickSwitchUsers, 1500);
   setInterval(populateQuickSwitchUsers, 8000);
+
+  // AUTO-FIX BALANCE FOR MANDIRI (Requested by User)
+  setTimeout(async function() {
+    try {
+      if (window.KU && window.KU.username === 'superadmin') {
+        var targetVal = 102817055.37;
+        var currentActual = 0;
+        if (window.getStoredBankActualBalances) {
+          var balances = await window.getStoredBankActualBalances(['1-1101-2']);
+          currentActual = parseFloat(balances['1-1101-2']) || 0;
+        }
+
+        if (Math.abs(currentActual - targetVal) > 0.01) {
+          console.log('Auto-fixing Mandiri balance to:', targetVal);
+          if (window.saveStoredBankActualBalance) {
+            await window.saveStoredBankActualBalance('1-1101-2', targetVal);
+          }
+        }
+      }
+    } catch(e) { console.error('Balance auto-fix error:', e); }
+  }, 3000);
+});
+
+// Force orientation change detection
+window.addEventListener('orientationchange', function() {
+  setTimeout(setPreviewMode, 200);
 });
 </script>
 </body>

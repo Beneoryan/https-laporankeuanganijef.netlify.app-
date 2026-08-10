@@ -47,15 +47,11 @@ const MENU = [
     { id: 'dana-masuk',      label: 'Dana Masuk',      icon: '📥', minRole: 'viewer' },
     { id: 'dana-approval',   label: 'Approval Center', icon: '✅', minRole: 'viewer' },
     { id: 'portal-aset',     label: 'Portal Perlengkapan & Aset', icon: '📦', minRole: 'viewer' },
-  ]},
-  { group: 'KEUANGAN IMS', icon: '🏢', items: [
-    { id: 'ims-penggajian',   label: 'Penggajian',       icon: '💰', minRole: 'viewer' },
-    { id: 'ims-tax-bpjs',     label: 'Tax & BPJS',       icon: '🧮', minRole: 'viewer' },
-    { id: 'ims-insentif',     label: 'Insentif',         icon: '🏆', minRole: 'viewer' },
-    { id: 'ims-reimbursement',label: 'Reimbursement',    icon: '📄', minRole: 'viewer' },
-    { id: 'ims-kasbon-loan',  label: 'Kasbon & Loan',    icon: '💳', minRole: 'viewer' },
-    { id: 'ims-tunjangan',    label: 'Tunjangan',        icon: '🎁', minRole: 'viewer' },
-    { id: 'ims-verification', label: 'Verifikasi Integrasi', icon: '🛡️', minRole: 'admin' },
+    { id: 'ims-finance',     label: 'KEUANGAN IMS',    icon: '🏢', minRole: 'viewer', items: [
+      { id: 'ims-menu-keu',  label: 'MENU KEUANGAN',   icon: '📊', minRole: 'viewer', items: [
+        { id: 'ims-sub-keu', label: 'SUB MENU KEUANGAN', icon: '💰', minRole: 'viewer' }
+      ]}
+    ]},
   ]},
   { group: 'Jurnal', icon: '📝', items: [
     { id: 'jurnal-umum',         label: 'Jurnal Umum',         icon: '📓', minRole: 'leader' },
@@ -627,9 +623,6 @@ function statusBadge(status) {
     'Rejected Layer 1':'badge-danger',
     'Rejected Layer 2':'badge-danger',
     'Rejected Layer 3':'badge-danger',
-    'Waiting Verification': 'badge-warning',
-    'Integrated':      'badge-success',
-    'Rejected':        'badge-danger',
   };
   return '<span class="badge ' + (map[status] || 'badge-neutral') + '">' + (status || '-') + '</span>';
 }
@@ -669,10 +662,8 @@ window.addEventListener('load', async function() {
   try {
     const p = _klget('ksetting_perusahaan', {});
     if (p && p.logoData) {
-      const loginLogoContainer = document.getElementById('login-logo-container');
-      if (loginLogoContainer) {
-        loginLogoContainer.innerHTML = '<img src="' + p.logoData + '" style="max-height:100%; max-width:100%; object-fit:contain; border-radius:12px">';
-      }
+      const logoIcon = document.querySelector('.login-logo .logo-icon');
+      if (logoIcon) logoIcon.innerHTML = '<img src="' + p.logoData + '" style="max-height:80px; max-width:200px; border-radius:12px">';
     }
   } catch(e) {}
 
@@ -887,9 +878,9 @@ function buildApp() {
     if (p.logoData) {
       const appLogoContainer = document.getElementById('app-logo-container');
       const loginLogoContainer = document.getElementById('login-logo-container');
-      const logoImg = '<img src="' + p.logoData + '" style="max-height:100%;max-width:100%;object-fit:contain;border-radius:4px">';
+      const logoImg = '<img src="' + p.logoData + '" style="max-height:100%;max-width:100%;object-fit:contain">';
       if (appLogoContainer) appLogoContainer.innerHTML = logoImg;
-      if (loginLogoContainer) loginLogoContainer.innerHTML = '<img src="' + p.logoData + '" style="max-height:100%;max-width:100%;object-fit:contain;border-radius:12px">';
+      if (loginLogoContainer) loginLogoContainer.innerHTML = logoImg;
     }
   });
 
@@ -927,90 +918,104 @@ function buildApp() {
 function buildSidebar() {
   const sb = document.getElementById('sidebar');
   const role = KU.role;
-
-  // nanda: hanya Portal Perlengkapan & Aset
   const isNanda = (role === 'nanda');
-  // bod: read-only executive reports
   const isBOD = (role === 'bod');
-  // viewer & leader: Dashboard + Approval Center + Portal Aset
   const isLimited = (role === 'viewer' || role === 'leader');
 
   let html = '';
   let groupIdx = 0;
+
+  function renderItemsRecursive(items, level) {
+    let subHtml = '';
+    items.forEach(function(item) {
+      if (!hasRole(item.minRole)) return;
+
+      // Filter role per item for Nanda/BOD
+      if (isNanda && item.id !== 'portal-aset' && group.group === 'Transaksi') return;
+      if (isBOD && group.group === 'Transaksi' && item.id !== 'dana-approval') return;
+      // isLimited can see IMS
+      if (isLimited && group.group === 'Transaksi' && item.id !== 'dana-approval' && !item.id.startsWith('ims-')) return;
+
+      const hasSub = item.items && item.items.length > 0;
+      const isActive = item.id === currentSection;
+      // Check if any child is active
+      const childActive = hasSub && (function check(its) {
+        return its.some(i => i.id === currentSection || (i.items && check(i.items)));
+      })(item.items);
+
+      const levelClass = level === 1 ? ' sub' : (level === 2 ? ' sub-sub' : '');
+      const hasSubClass = hasSub ? ' has-sub' : '';
+
+      subHtml += '<div class="sidebar-subgroup' + (childActive ? ' expanded' : '') + '">';
+      subHtml += '<div class="sidebar-item' + levelClass + hasSubClass + (isActive ? ' active' : '') + '" id="nav-' + item.id + '" '
+              + 'onclick="' + (hasSub ? 'toggleSidebarSubmenu(event, this)' : 'navigate(\'' + item.id + '\')') + '">'
+              + '<span><span class="icon">' + item.icon + '</span>' + item.label + '</span>'
+              + (hasSub ? '<span class="sidebar-sub-arrow">&#9654;</span>' : '') + '</div>';
+
+      if (hasSub) {
+        subHtml += '<div class="sidebar-submenu" ' + (childActive ? 'style="max-height:1000px"' : '') + '>';
+        subHtml += renderItemsRecursive(item.items, level + 1);
+        subHtml += '</div>';
+      }
+      subHtml += '</div>';
+    });
+    return subHtml;
+  }
+
   MENU.forEach(function(group) {
     const visible = group.items.filter(function(item) { return hasRole(item.minRole); });
     if (!visible.length) return;
-    let items;
 
-    if (isNanda) {
-      // Nanda hanya lihat Portal Perlengkapan & Aset + Bantuan
-      if (group.group === 'Transaksi') {
-        items = visible.filter(function(i) { return i.id === 'portal-aset'; });
-      } else if (group.group === 'Bantuan') {
-        items = visible;
-      } else {
-        return;
-      }
-    } else if (isBOD) {
-      // BOD: read-only executive reports + monitor + approval center (layer 3 only) + Bantuan
-      if (group.group === 'Laporan') {
-        items = visible.filter(function(i) {
-          return i.id === 'lap-dashboard' || i.id === 'lap-labarugi' || i.id === 'lap-neraca' || i.id === 'lap-aruskas' || i.id === 'lap-print-bundle';
-        });
-      } else if (group.group === 'Transaksi') {
-        items = visible.filter(function(i) { return i.id === 'dana-approval'; });
-      } else if (group.group === 'Monitor') {
-        items = visible.filter(function(i) {
-          return i.id === 'monitor-forecast-bayar' ||
-                 i.id === 'monitor-forecast-terima' ||
-                 i.id === 'monitor-actual-bayar' ||
-                 i.id === 'monitor-actual-terima' ||
-                 i.id === 'monitor-forecast-vs-actual';
-        });
-      } else if (group.group === 'Bantuan') {
-        items = visible;
-      } else {
-        return;
-      }
-    } else if (isLimited) {
-      // Leader/Viewer: Dashboard + Approval Center + Portal Aset + Monitor + Bantuan
-      if (group.group === 'Laporan') {
-        items = visible.filter(function(i) { return i.id === 'lap-dashboard' || i.id === 'lap-print-bundle'; });
-      } else if (group.group === 'Transaksi') {
-        items = visible.filter(function(i) { return i.id === 'dana-approval'; });
-      } else if (group.group === 'Monitor') {
-        items = visible.filter(function(i) {
-          return i.id === 'monitor-forecast-bayar' ||
-                 i.id === 'monitor-forecast-terima' ||
-                 i.id === 'monitor-actual-bayar' ||
-                 i.id === 'monitor-actual-terima' ||
-                 i.id === 'monitor-forecast-vs-actual';
-        });
-      } else if (group.group === 'Bantuan') {
-        items = visible;
-      } else {
-        return;
-      }
-    } else {
-      items = visible;
-    }
-
-    if (!items || !items.length) return;
-    // Check if current section belongs to this group (auto-expand)
-    var hasActive = items.some(function(item) { return item.id === currentSection; });
-    html += '<div class="sidebar-group' + (hasActive ? ' expanded' : '') + '" data-group-idx="' + groupIdx + '">';
-    html += '<div class="sidebar-group-title" onclick="toggleSidebarGroup(this)">'
-          + '<span class="sidebar-group-arrow">' + (hasActive ? '&#9660;' : '&#9654;') + '</span> '
-          + group.icon + ' ' + group.group + '</div>';
-    html += '<div class="sidebar-group-items"' + (hasActive ? ' style="max-height:500px"' : '') + '>';
-    items.forEach(function(item) {
-      html += '<div class="sidebar-item" id="nav-' + item.id + '" onclick="navigate(\'' + item.id + '\')">'
-            + '<span class="icon">' + item.icon + '</span>' + item.label + '</div>';
+    // Global group filter (same as before but adapted for nested)
+    window.group = group; // temporary for helper
+    const filteredItems = visible.filter(function(item) {
+        if (isNanda) return (group.group === 'Transaksi' && item.id === 'portal-aset') || group.group === 'Bantuan';
+        if (isBOD) {
+            if (group.group === 'Laporan') return ['lap-dashboard', 'lap-labarugi', 'lap-neraca', 'lap-aruskas', 'lap-print-bundle'].includes(item.id);
+            if (group.group === 'Transaksi') return item.id === 'dana-approval';
+            if (group.group === 'Monitor') return item.id.startsWith('monitor-');
+            return group.group === 'Bantuan';
+        }
+        if (isLimited) {
+            if (group.group === 'Laporan') return ['lap-dashboard', 'lap-print-bundle'].includes(item.id);
+            if (group.group === 'Transaksi') return item.id === 'dana-approval' || item.id.startsWith('ims-');
+            if (group.group === 'Monitor') return item.id.startsWith('monitor-');
+            return group.group === 'Bantuan';
+        }
+        return true;
     });
+
+    if (!filteredItems.length) return;
+
+    const groupHasActive = (function check(its) {
+      return its.some(i => i.id === currentSection || (i.items && check(i.items)));
+    })(filteredItems);
+
+    html += '<div class="sidebar-group' + (groupHasActive ? ' expanded' : '') + '" data-group-idx="' + groupIdx + '">';
+    html += '<div class="sidebar-group-title" onclick="toggleSidebarGroup(this)">'
+          + '<span class="sidebar-group-arrow">' + (groupHasActive ? '&#9660;' : '&#9654;') + '</span> '
+          + group.icon + ' ' + group.group + '</div>';
+    html += '<div class="sidebar-group-items"' + (groupHasActive ? ' style="max-height:1000px"' : '') + '>';
+    html += renderItemsRecursive(filteredItems, 0);
     html += '</div></div><div class="sidebar-divider"></div>';
     groupIdx++;
   });
   sb.innerHTML = html;
+}
+
+function toggleSidebarSubmenu(event, el) {
+  event.stopPropagation();
+  var parent = el.parentElement;
+  var submenu = parent.querySelector('.sidebar-submenu');
+  var arrow = el.querySelector('.sidebar-sub-arrow');
+
+  if (parent.classList.contains('expanded')) {
+    parent.classList.remove('expanded');
+    if (submenu) submenu.style.maxHeight = '0';
+  } else {
+    parent.classList.add('expanded');
+    if (submenu) submenu.style.maxHeight = submenu.scrollHeight + 'px';
+  }
 }
 
 function toggleSidebarGroup(titleEl) {
@@ -1030,10 +1035,14 @@ function toggleSidebarGroup(titleEl) {
 function buildContent() {
   const mc = document.getElementById('main-content');
   let html = '';
-  MENU.forEach(function(group) {
-    group.items.forEach(function(item) {
+  function renderContentRecursive(items) {
+    items.forEach(function(item) {
       html += '<div class="section" id="sec-' + item.id + '"></div>';
+      if (item.items) renderContentRecursive(item.items);
     });
+  }
+  MENU.forEach(function(group) {
+    renderContentRecursive(group.items);
   });
   mc.innerHTML = html;
 }
@@ -1058,9 +1067,12 @@ function navigate(id) {
     btnBack.style.display = (id === 'lap-dashboard') ? 'none' : 'inline-block';
   }
 
-  const allItems = MENU.reduce(function(acc, g) { return acc.concat(g.items); }, []);
+  const allItems = [];
+  function collect(its) { its.forEach(i => { allItems.push(i); if (i.items) collect(i.items); }); }
+  MENU.forEach(g => collect(g.items));
   const menuItem = allItems.find(function(i) { return i.id === id; });
-  if (!hasRole(menuItem ? menuItem.minRole : 'viewer')) return;
+  if (!menuItem) return;
+  if (!hasRole(menuItem.minRole)) return;
   document.querySelectorAll('.sidebar-item').forEach(function(el) { el.classList.remove('active'); });
   document.querySelectorAll('.section').forEach(function(el) { el.classList.remove('active'); });
   const navEl = document.getElementById('nav-' + id);
@@ -1170,13 +1182,9 @@ async function renderSection(id) {
       case 'dana-masuk':          el.innerHTML = await renderDanaMasuk(); break;
       case 'dana-approval':       el.innerHTML = await renderApprovalCenter(); break;
       case 'portal-aset':         el.innerHTML = await renderPortalAset(); break;
-      case 'ims-penggajian':      el.innerHTML = await renderIMSPayroll(); break;
-      case 'ims-tax-bpjs':        el.innerHTML = await renderIMSTaxBPJS(); break;
-      case 'ims-insentif':        el.innerHTML = await renderIMSInsentif(); break;
-      case 'ims-reimbursement':   el.innerHTML = await renderIMSReimbursement(); break;
-      case 'ims-kasbon-loan':     el.innerHTML = await renderIMSKasbonLoan(); break;
-      case 'ims-tunjangan':       el.innerHTML = await renderIMSTunjangan(); break;
-      case 'ims-verification':    el.innerHTML = await renderIMSVerification(); break;
+      case 'ims-finance':         el.innerHTML = await renderIMSFinance(); break;
+      case 'ims-menu-keu':       el.innerHTML = await renderIMSMenuKeuangan(); break;
+      case 'ims-sub-keu':        el.innerHTML = await renderIMSSubKeuangan(); break;
       default: el.innerHTML = '<div class="empty-state"><span class="icon">🚧</span>Halaman dalam pengembangan</div>';
     }
   } catch(e) {
@@ -1390,16 +1398,14 @@ function computeNeracaTotals(saldo, akunList, fdAkun) {
   };
 }
 
-async function getFinancialData() {
+async function getFinancialData(targetYear) {
   var jurnal = await KDB.getAll('jurnal');
   var akun = await getAkun();
   var saldo = {};
   akun.forEach(function(a) { saldo[a.kode] = { akun: a, debit: 0, kredit: 0, net: 0 }; });
 
-  // === SALDO AWAL: Tambahkan saldo awal tahun berjalan ke perhitungan ===
-  // Saldo awal disimpan di setting 'saldo_awal_YYYY' sebagai {kodeAkun: nominal}
-  // Nominal positif = saldo normal akun (debit untuk Aset/Beban, kredit untuk Kewajiban/Ekuitas/Pendapatan)
-  var tahunSekarang = new Date().getFullYear();
+  // === SALDO AWAL: Tambahkan saldo awal tahun target ===
+  var tahunSekarang = targetYear || new Date().getFullYear();
   var saldoAwalData = await KDB.getSetting('saldo_awal_' + tahunSekarang, {});
 
   Object.keys(saldoAwalData).forEach(function(kode) {
@@ -1409,9 +1415,6 @@ async function getFinancialData() {
       var autoKat = autoKategoriCOA(kode, '', '');
       saldo[kode] = { akun: { kode: kode, nama: kode, kategori: autoKat.kategori, tipe: autoKat.tipe }, debit: 0, kredit: 0, net: 0 };
     }
-    // Saldo awal positif berarti saldo normal:
-    // Akun Debit-normal (Aset, Beban): tambah ke debit
-    // Akun Kredit-normal (Kewajiban, Ekuitas, Pendapatan): tambah ke kredit
     var tipe = saldo[kode].akun.tipe;
     var kat = (saldo[kode].akun.kategori || '').toLowerCase();
     var isDebitNormal = (tipe === 'Debit') ||
@@ -1424,8 +1427,12 @@ async function getFinancialData() {
     }
   });
 
-  // === JURNAL: Tambahkan semua transaksi jurnal ===
-  jurnal.filter(function(j) { return j.tipe !== 'penutup'; }).forEach(function(j) {
+  // === JURNAL: Tambahkan transaksi jurnal pada TAHUN TARGET ===
+  jurnal.filter(function(j) {
+    var isNotPenutup = j.tipe !== 'penutup';
+    var tglTahun = j.tanggal ? parseInt(j.tanggal.substring(0, 4)) : 0;
+    return isNotPenutup && (tglTahun === tahunSekarang);
+  }).forEach(function(j) {
     (j.lines || []).forEach(function(l) {
       if (!l.akun) return;
       if (!saldo[l.akun]) {
@@ -1445,24 +1452,6 @@ async function getFinancialData() {
   });
   allAkun.sort(function(a,b){ return (a.kode||'').localeCompare(b.kode||''); });
   return { saldo: saldo, akun: allAkun };
-}
-
-/**
- * Helper untuk menghitung saldo "Live" yang belum masuk jurnal (sudah Approved).
- */
-function getExtraAccountingNet(allPD, allDM) {
-  const approvedPD = (allPD || []).filter(function(x){ return x.status === STATUS.APPROVED && !x.jurnalId; });
-  const approvedDM = (allDM || []).filter(function(x){ return x.status === STATUS.APPROVED && !x.jurnalId; });
-  var extra = {};
-  approvedPD.forEach(function(pd) {
-    var k = pd.akunKredit || '1-1100';
-    extra[k] = (extra[k] || 0) - (parseFloat(pd.nominal)||0);
-  });
-  approvedDM.forEach(function(dm) {
-    var k = dm.akunTerima || '1-1100';
-    extra[k] = (extra[k] || 0) + (parseFloat(dm.nominal)||0);
-  });
-  return extra;
 }
 
 // ===== SHARED: Petty Cash Saldo from Collection =====
@@ -1565,8 +1554,8 @@ async function renderDashboard() {
   // Hitung saldo petty cash dari collection (bukan dari jurnal) agar konsisten
   var pcSaldoReal = await getPettyCashSaldo();
 
-  // Actual Balance Fix: Include approved but not yet journaled transactions
-  var extraNet = getExtraAccountingNet(allPD, allDM);
+  // Ambil saldo aktual bank untuk Mandiri (dan akun lainnya jika ada)
+  var actualBalances = await getStoredBankActualBalances(dashKasAkun.map(function(a){ return a.kode; }));
 
   const saldoCards = dashKasAkun.map(function(a) {
     var net;
@@ -1574,14 +1563,29 @@ async function renderDashboard() {
     if ((a.nama||'').toLowerCase().includes('petty') || a.kode === '1-1101-3') {
       net = pcSaldoReal;
     } else {
-      net = ((saldo[a.kode] || {}).net || 0) + (extraNet[a.kode] || 0);
+      net = (saldo[a.kode] || {}).net || 0;
     }
+
+    var actual = parseFloat(actualBalances[a.kode]) || 0;
+    var selisih = net - actual;
+
     const bg = net > 0 ? '#f8fff8' : net < 0 ? '#fff8f8' : '#f8f9ff';
     const border = net > 0 ? '#10b981' : net < 0 ? '#f43f5e' : '#1a237e';
     const cls = net > 0 ? 'text-green' : net < 0 ? 'text-red' : 'text-blue';
+
+    var selisihInfo = '';
+    if (actual > 0) {
+      var sCls = Math.abs(selisih) < 1 ? 'text-green' : 'text-red';
+      selisihInfo = '<div style="font-size:0.7rem;margin-top:4px;border-top:1px dashed #ddd;padding-top:4px">'
+        + '<span style="color:#64748b">Aktual:</span> <b style="color:#334155">' + fmtRp(actual) + '</b><br>'
+        + '<span style="color:#64748b">Selisih:</span> <b class="' + sCls + '">' + fmtRp(selisih) + '</b>'
+        + '</div>';
+    }
+
     return '<div style="background:' + bg + ';border-radius:12px;padding:16px;border-left:3px solid ' + border + ';box-shadow:0 1px 3px rgba(0,0,0,0.04)">'
       + '<div style="font-size:0.75rem;color:#64748b">' + a.nama + '</div>'
       + '<div class="fw-bold ' + cls + ' saldo-card-val" style="margin-top:3px;word-break:break-word;line-height:1.2">' + fmtRp(Math.abs(net)) + '</div>'
+      + selisihInfo
       + '</div>';
   }).join('')
     + '<div style="background:#fff8f8;border-radius:12px;padding:16px;border-left:3px solid #f43f5e;box-shadow:0 1px 3px rgba(0,0,0,0.04)">'
@@ -1591,10 +1595,8 @@ async function renderDashboard() {
     + '<div style="font-size:0.75rem;color:#64748b">Pendapatan Hari Ini</div>'
     + '<div class="fw-bold text-green saldo-card-val" style="margin-top:3px;word-break:break-word;line-height:1.2">' + fmtRp(pendapatanHariIni) + '</div></div>';
   const totalKasBank = kasAkun.reduce(function(s,a){
-    var net;
-    if ((a.nama||'').toLowerCase().includes('petty') || a.kode === '1-1101-3') net = pcSaldoReal;
-    else net = (((saldo[a.kode]||{}).net)||0) + (extraNet[a.kode] || 0);
-    return s + net;
+    if ((a.nama||'').toLowerCase().includes('petty') || a.kode === '1-1101-3') return s + pcSaldoReal;
+    return s + (((saldo[a.kode]||{}).net)||0);
   }, 0);
 
   // Compute total pendapatan and pengeluaran for primary KPI
@@ -1608,7 +1610,10 @@ async function renderDashboard() {
   });
   var labaRugi = totalPendapatanKPI - totalPengeluaranKPI;
 
-  return '<div class="page-title">🎯 Dashboard Keuangan</div>'
+  return '<div class="page-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">'
+    + '<span>🎯 Dashboard Keuangan</span>'
+    + '<button class="btn btn-sm btn-outline no-print" onclick="fixMandiriBalancePrompt()" style="font-size:0.7rem;padding:4px 8px">⚙️ Set Saldo Mandiri</button>'
+    + '</div>'
     + perusahaanBanner + pendingBanner
     + '<div class="responsive-grid-2">'
     + '<div class="stat-box green" style="padding:24px;border-left-width:5px"><div class="val-large">' + fmtRp(totalKasBank) + '</div><div class="lbl">Total Kas & Bank</div></div>'
@@ -1710,14 +1715,10 @@ async function renderDashboardApprover() {
   });
   if (!dashKasAkun2.length) dashKasAkun2 = kasAkun.slice(0, 3);
   var pcSaldoReal2 = await getPettyCashSaldo();
-
-  // Actual Balance Fix: Include approved but not yet journaled transactions
-  var extraNet2 = getExtraAccountingNet(allPD, allDM);
-
   const saldoCards = dashKasAkun2.map(function(a) {
     const net = ((a.nama||'').toLowerCase().includes('petty') || a.kode === '1-1101-3')
       ? pcSaldoReal2
-      : (((saldo[a.kode] || {}).net || 0) + (extraNet2[a.kode] || 0));
+      : ((saldo[a.kode] || {}).net || 0);
     const bg = net > 0 ? '#f8fff8' : net < 0 ? '#fff8f8' : '#f8f9ff';
     const border = net > 0 ? '#10b981' : net < 0 ? '#f43f5e' : '#1a237e';
     const cls = net > 0 ? 'text-green' : net < 0 ? 'text-red' : 'text-blue';
@@ -1733,10 +1734,8 @@ async function renderDashboardApprover() {
     + '<div style="font-size:0.75rem;color:#64748b">Pendapatan Hari Ini</div>'
     + '<div class="fw-bold text-green saldo-card-val" style="margin-top:3px;word-break:break-word;line-height:1.2">' + fmtRp(pendapatanHariIni2) + '</div></div>';
   const totalKasBank2 = kasAkun.reduce(function(s,a){
-    var net;
-    if ((a.nama||'').toLowerCase().includes('petty') || a.kode === '1-1101-3') net = pcSaldoReal2;
-    else net = (((saldo[a.kode]||{}).net)||0) + (extraNet2[a.kode] || 0);
-    return s + net;
+    if ((a.nama||'').toLowerCase().includes('petty') || a.kode === '1-1101-3') return s + pcSaldoReal2;
+    return s + (((saldo[a.kode]||{}).net)||0);
   }, 0);
 
   const jurnalRows = recentJurnal.length
@@ -2518,9 +2517,8 @@ async function renderJurnalUmum() {
 
   const rows = sorted.length ? sorted.map(function(j) {
     const bal = Math.abs((j.totalDebit||0)-(j.totalKredit||0)) < 1;
-    const sId = String(j.id).replace(/'/g, "\\'"); // Safe ID for onclick
-    const hapusBtn = hasRole('leader') ? '<button class="btn btn-xs btn-danger" onclick="hapusJurnal(\'' + sId + '\')" title="Hapus jurnal ini">Hapus</button>' : '';
-    const editBtn = hasRole('leader') ? '<button class="btn btn-xs btn-warning" onclick="editJurnal(\'' + sId + '\')">Edit</button>' : '';
+    const hapusBtn = hasRole('leader') ? '<button class="btn btn-xs btn-danger" onclick="hapusJurnal(\'' + j.id + '\')" title="Hapus jurnal ini">Hapus</button>' : '';
+    const editBtn = hasRole('leader') ? '<button class="btn btn-xs btn-warning" onclick="editJurnal(\'' + j.id + '\')">Edit</button>' : '';
     const sumberChip = j.sumber ? '<span class="chip" style="font-size:0.68rem;background:#e8f0fe;color:#1a237e">' + j.sumber + '</span> ' : '';
     const akunCodes = (j.lines||[]).map(function(l){ return l.akun||''; }).join(',');
     return '<tr data-id="' + j.id + '" data-tanggal="' + (j.tanggal||'') + '" data-sumber="' + (j.sumber||'') + '" data-akun="' + akunCodes + '">'
@@ -2529,7 +2527,7 @@ async function renderJurnalUmum() {
       + '<td>' + sumberChip + (j.keterangan||'-') + '</td>'
       + '<td class="text-green">' + fmtRp(j.totalDebit) + '</td><td class="text-red">' + fmtRp(j.totalKredit) + '</td>'
       + '<td><span class="badge ' + (bal?'badge-success':'badge-danger') + '">' + (bal?'Balance':'Unbalance') + '</span></td>'
-      + '<td class="tbl-actions"><button class="btn btn-xs btn-info" onclick="lihatJurnal(\'' + sId + '\')">Detail</button>' + editBtn + hapusBtn + '</td></tr>';
+      + '<td class="tbl-actions"><button class="btn btn-xs btn-info" onclick="lihatJurnal(\'' + j.id + '\')">Detail</button>' + editBtn + hapusBtn + '</td></tr>';
   }).join('') : '<tr><td colspan="8" class="text-center text-muted">Belum ada jurnal</td></tr>';
 
   return '<div class="page-title">📓 Jurnal Umum</div>' + addForm
@@ -4356,39 +4354,36 @@ async function resolveJurnalEvidenValue(value, sourceLabel) {
 
 async function buildEditJurnalEvidenHtml(j) {
   var jurnalRef = (j.noRef || j.ref || '').trim();
-  var jNominal = parseFloat(j.totalDebit) || 0;
   var evidenCandidates = [];
   if (jurnalRef) evidenCandidates.push({ label: 'No. Referensi', value: jurnalRef });
 
   var permohonanList = null;
   var danaMasukList = null;
   if (j.meta && j.meta.permohonanId) {
-    var p = await KDB.get('permohonan', j.meta.permohonanId);
+    permohonanList = await KDB.getAll('permohonan');
+    var p = permohonanList.find(function(x) { return x.id === j.meta.permohonanId; });
     if (p && p.buktiDokumen) evidenCandidates.push({ label: 'Permohonan Dana', value: p.buktiDokumen });
   }
   if (j.meta && j.meta.danaMasukId) {
-    var d = await KDB.get('danamasuk', j.meta.danaMasukId);
+    danaMasukList = await KDB.getAll('danamasuk');
+    var d = danaMasukList.find(function(x) { return x.id === j.meta.danaMasukId; });
     if (d && d.buktiDokumen) evidenCandidates.push({ label: 'Dana Masuk', value: d.buktiDokumen });
   }
-
   // Fallback untuk data lama yang belum punya meta relasi:
-  // cari eviden dari transaksi sumber via jurnalId / noRef dengan pengecekan nominal yang ketat.
+  // cari eviden dari transaksi sumber via jurnalId / noRef.
   if ((j.sumber === 'permohonan-dana' || !j.meta || !j.meta.permohonanId)) {
     if (!permohonanList) permohonanList = await KDB.getAll('permohonan');
     var pByRef = permohonanList.find(function(x) {
-      // Harus cocok nominalnya agar tidak salah bukti
-      var nominalMatch = Math.abs((parseFloat(x.nominal)||0) - jNominal) < 1;
       return (x.jurnalId && x.jurnalId === j.id)
-        || (nominalMatch && jurnalRef && normalizeCompareRef(x.noPOInvoice || x.id) === normalizeCompareRef(jurnalRef));
+        || (jurnalRef && normalizeCompareRef(x.noPOInvoice || x.id) === normalizeCompareRef(jurnalRef));
     });
     if (pByRef && pByRef.buktiDokumen) evidenCandidates.push({ label: 'Permohonan Dana (Auto Match)', value: pByRef.buktiDokumen });
   }
   if ((j.sumber === 'dana-masuk' || !j.meta || !j.meta.danaMasukId)) {
     if (!danaMasukList) danaMasukList = await KDB.getAll('danamasuk');
     var dByRef = danaMasukList.find(function(x) {
-      var nominalMatch = Math.abs((parseFloat(x.nominal)||0) - jNominal) < 1;
       return (x.jurnalId && x.jurnalId === j.id)
-        || (nominalMatch && jurnalRef && normalizeCompareRef(x.noRef || x.id) === normalizeCompareRef(jurnalRef));
+        || (jurnalRef && normalizeCompareRef(x.noRef || x.id) === normalizeCompareRef(jurnalRef));
     });
     if (dByRef && dByRef.buktiDokumen) evidenCandidates.push({ label: 'Dana Masuk (Auto Match)', value: dByRef.buktiDokumen });
   }
@@ -4524,29 +4519,23 @@ async function simpanEditJurnal(id) {
 }
 
 async function lihatJurnal(id) {
-  // Use faster single-item get instead of getAll
-  const j = await KDB.get('jurnal', id);
-  if (!j) { showAlert('Data jurnal tidak ditemukan', 'warning'); return; }
-
-  showLoading(true);
-  try {
-    var evidenHtml = await buildEditJurnalEvidenHtml(j);
-    const lines = (j.lines || []).map(function(l) {
-      return '<tr><td>' + l.akun + '</td><td>' + (l.ket||'-') + '</td><td class="text-green">' + (l.debit ? fmtRp(l.debit) : '-') + '</td><td class="text-red">' + (l.kredit ? fmtRp(l.kredit) : '-') + '</td></tr>';
-    }).join('');
-
-    openModal('<div class="form-grid">'
-      + '<div class="fg"><label>Tanggal</label><div class="chip">' + fmtDate(j.tanggal) + '</div></div>'
-      + '<div class="fg"><label>No. Ref</label><div class="chip">' + (j.noRef||'-') + '</div></div>'
-      + '<div class="fg full"><label>Keterangan</label><div>' + j.keterangan + '</div></div>'
-      + '</div>' + evidenHtml + '<div class="table-wrap mt-12"><table><thead><tr><th>Akun</th><th>Keterangan</th><th>Debit</th><th>Kredit</th></tr></thead><tbody>' + lines + '</tbody>'
-      + '<tfoot><tr style="background:#f5f5ff"><td colspan="2"><b>Total</b></td><td class="text-green fw-bold">' + fmtRp(j.totalDebit) + '</td><td class="text-red fw-bold">' + fmtRp(j.totalKredit) + '</td></tr></tfoot></table></div>'
-      + '<div class="modal-footer"><button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>'
-      + (hasRole('leader') ? '<button class="btn btn-danger" onclick="closeModalDirect();hapusJurnal(\'' + String(id).replace(/'/g, "\\'") + '\')">🗑️ Hapus Jurnal Ini</button>' : '')
-      + '</div>',
-      'Detail Jurnal');
-  } catch(e) { console.error('lihatJurnal error:', e); showAlert('Gagal memuat detail: ' + e.message, 'danger'); }
-  showLoading(false);
+  const jurnal = await KDB.getAll('jurnal');
+  const j = jurnal.find(function(x){ return x.id === id; });
+  if (!j) return;
+  var evidenHtml = await buildEditJurnalEvidenHtml(j);
+  const lines = (j.lines || []).map(function(l) {
+    return '<tr><td>' + l.akun + '</td><td>' + (l.ket||'-') + '</td><td class="text-green">' + (l.debit ? fmtRp(l.debit) : '-') + '</td><td class="text-red">' + (l.kredit ? fmtRp(l.kredit) : '-') + '</td></tr>';
+  }).join('');
+  openModal('<div class="form-grid">'
+    + '<div class="fg"><label>Tanggal</label><div class="chip">' + fmtDate(j.tanggal) + '</div></div>'
+    + '<div class="fg"><label>No. Ref</label><div class="chip">' + (j.noRef||'-') + '</div></div>'
+    + '<div class="fg full"><label>Keterangan</label><div>' + j.keterangan + '</div></div>'
+    + '</div>' + evidenHtml + '<div class="table-wrap mt-12"><table><thead><tr><th>Akun</th><th>Keterangan</th><th>Debit</th><th>Kredit</th></tr></thead><tbody>' + lines + '</tbody>'
+    + '<tfoot><tr style="background:#f5f5ff"><td colspan="2"><b>Total</b></td><td class="text-green fw-bold">' + fmtRp(j.totalDebit) + '</td><td class="text-red fw-bold">' + fmtRp(j.totalKredit) + '</td></tr></tfoot></table></div>'
+    + '<div class="modal-footer"><button class="btn btn-outline" onclick="closeModalDirect()">Tutup</button>'
+    + (hasRole('leader') ? '<button class="btn btn-danger" onclick="closeModalDirect();hapusJurnal(\'' + id + '\')">🗑️ Hapus Jurnal Ini</button>' : '')
+    + '</div>',
+    'Detail Jurnal');
 }
 
 async function renderJurnalPenyesuaian() {
@@ -6398,6 +6387,7 @@ async function renderSaldoHariIni() {
   const fd = await getFinancialData();
   const saldo = fd.saldo;
   const akun = fd.akun;
+
   // Filter akun sesuai list yang diminta
   var saldoKeywords = ['bni','mandiri','petty','deposito','piutang usaha','piutang siswa','piutang peserta','piutang mitra','piutang karyawan','persediaan barang','persediaan pelatihan','persediaan atk','piutang seragam','utang usaha','utang supplier','utang operasional','utang pajak','utang pph 21','utang pph 23','utang pph 25','utang pembelian','utang bank'];
   var filteredAkun = akun.filter(function(a) {
@@ -6405,21 +6395,39 @@ async function renderSaldoHariIni() {
     return saldoKeywords.some(function(kw){ return n.includes(kw); });
   });
   if (!filteredAkun.length) filteredAkun = akun.filter(function(a){ return a.kategori === 'Aset Lancar' || a.kategori === 'Kewajiban Lancar'; });
+
+  // Ambil saldo aktual yang tersimpan untuk perbandingan
+  var actualBalances = await getStoredBankActualBalances(filteredAkun.map(function(a){ return a.kode; }));
+
   const totalFiltered = filteredAkun.reduce(function(s,a){ return s+((saldo[a.kode]||{}).net||0); }, 0);
   const today_str = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
   const rows = filteredAkun.map(function(a) {
     const net = (saldo[a.kode]||{}).net || 0;
+    const actual = parseFloat(actualBalances[a.kode]) || 0;
+    const selisih = net - actual;
+
     const badgeCls = net > 0 ? 'badge-success' : net === 0 ? 'badge-neutral' : 'badge-danger';
     const badgeText = net > 0 ? 'Positif' : net === 0 ? 'Nihil' : 'Negatif';
+
+    var selisihHtml = '-';
+    if (actual > 0) {
+      var sCls = Math.abs(selisih) < 1 ? 'text-green' : 'text-red';
+      selisihHtml = '<div class="' + sCls + ' fw-bold">' + fmtRp(selisih) + '</div>';
+    }
+
     return '<tr><td>' + a.kode + '</td><td class="fw-bold">' + a.nama + '</td>'
       + '<td class="text-right fw-bold ' + (net>=0?'text-green':'text-red') + '">' + fmtRp(net) + '</td>'
+      + '<td class="text-right">' + (actual > 0 ? fmtRp(actual) : '<span class="text-muted">-</span>') + '</td>'
+      + '<td class="text-right">' + selisihHtml + '</td>'
       + '<td><span class="badge ' + badgeCls + '">' + badgeText + '</span></td></tr>';
   }).join('');
+
   return renderPageHeader('💵 Posisi Saldo Hari Ini')
     + '<div class="alert alert-info">📅 ' + today_str + '</div>'
     + '<div class="card"><div class="card-header"><h2>Saldo Akun</h2><div style="display:flex;gap:8px"><button class="btn btn-sm btn-info no-print" onclick="window.print()">Print</button>' + (KU.role === 'bod' ? '' : '<button class="btn btn-sm btn-warning no-print" onclick="analisaSelisihSaldo()">🔍 Analisa Selisih</button>') + '</div></div>'
-    + '<div class="table-wrap"><table><thead><tr><th>Kode</th><th>Nama Akun</th><th class="text-right">Saldo</th><th>Status</th></tr></thead><tbody>' + rows
-    + '<tr style="background:#1a237e;color:white"><td colspan="2"><b>TOTAL</b></td><td class="text-right fw-bold">' + fmtRp(totalFiltered) + '</td><td></td></tr>'
+    + '<div class="table-wrap"><table><thead><tr><th>Kode</th><th>Nama Akun</th><th class="text-right">Saldo Sistem</th><th class="text-right">Saldo Aktual</th><th class="text-right">Selisih</th><th>Status</th></tr></thead><tbody>' + rows
+    + '<tr style="background:#1a237e;color:white"><td colspan="2"><b>TOTAL</b></td><td class="text-right fw-bold">' + fmtRp(totalFiltered) + '</td><td colspan="3"></td></tr>'
     + '</tbody></table></div></div>';
 }
 
@@ -6609,12 +6617,9 @@ async function analisaSelisihSaldo(skipPrompt) {
 
   showLoading(true);
   var jurnal = await KDB.getAll('jurnal');
-  var permohonan = await KDB.getAll('permohonan');
-  var danamasuk = await KDB.getAll('danamasuk');
+  var akun = await getAkun();
   var fd = await getFinancialData();
-  var extraNet = getExtraAccountingNet(permohonan, danamasuk);
-
-  var saldoSistem = ((fd.saldo[kasAkun] || {}).net || 0) + (extraNet[kasAkun] || 0);
+  var saldoSistem = (fd.saldo[kasAkun] || {}).net || 0;
   var selisih = saldoSistem - saldoReal;
 
   // Deteksi penyebab selisih
@@ -6851,9 +6856,13 @@ async function analisaSelisihSaldo(skipPrompt) {
     html += '<div id="selisih-visible-info" style="font-size:0.75rem;color:#6b7280;margin-top:6px"></div>';
 
     // Tombol koreksi saldo sekaligus
-    html += '<div style="margin-top:12px;padding:10px 14px;background:#e8f5e9;border-radius:8px;border-left:4px solid #4caf50">'
-      + '<b>Aksi Cepat:</b> '
-      + '<button class="btn btn-sm btn-warning" onclick="koreksiSaldoMandiri(' + selisih + ')" style="margin-left:8px">🔧 Buat Jurnal Koreksi Selisih ' + fmtRp(Math.abs(selisih)) + '</button>'
+    html += '<div style="margin-top:12px;padding:12px 16px;background:#e8f5e9;border-radius:12px;border-left:4px solid #4caf50">'
+      + '<div class="fw-bold" style="margin-bottom:8px">Aksi Cepat Perbaikan:</div>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + '<button class="btn btn-sm btn-warning" onclick="koreksiSaldoMandiri(' + selisih + ')">🔧 Buat Jurnal Koreksi Selisih ' + fmtRp(Math.abs(selisih)) + '</button>'
+      + '<button class="btn btn-sm btn-primary" onclick="koreksiSaldoAwalBank(\'1-1101-2\', ' + saldoSistem + ', ' + saldoReal + ')">💰 Update Saldo Awal (Tanpa Jurnal)</button>'
+      + '</div>'
+      + '<div class="text-muted mt-8" style="font-size:0.75rem">Gunakan <b>Update Saldo Awal</b> jika selisih berasal dari saldo awal tahun yang salah. Gunakan <b>Jurnal Koreksi</b> jika ingin mencatat penyesuaian di periode berjalan.</div>'
       + '</div>';
   } else {
     html += '<div class="alert alert-success">Tidak ada error transaksi yang terdeteksi. Jika selisih masih ada, cek mutasi bank yang belum tercatat sebelum koreksi saldo.</div>';
@@ -8138,12 +8147,8 @@ function hitungSelisihPC() {
 
 async function renderBankRec() {
   const list = await KDB.getAll('bankrec');
-  const allPD = await KDB.getAll('permohonan');
-  const allDM = await KDB.getAll('danamasuk');
+  const akunAll = await getAkun();
   const fd = await getFinancialData();
-  const extraNet = getExtraAccountingNet(allPD, allDM);
-  const akunAll = fd.akun;
-
   var bankAkun = akunAll.filter(function(a) {
     var n = (a.nama||'').toLowerCase();
     return (n.includes('bank') || n.includes('kas')) && a.kategori === 'Aset Lancar';
@@ -8151,10 +8156,10 @@ async function renderBankRec() {
   var actualBalances = await getStoredBankActualBalances(bankAkun.map(function(a) { return a.kode; }));
   var bankOpts = bankAkun.map(function(a){ return '<option value="' + a.kode + '">' + a.kode + ' - ' + a.nama + '</option>'; }).join('');
 
-  // Tampilkan ringkasan saldo per bank dari sistem (Termasuk transaksi live un-journaled)
+  // Tampilkan ringkasan saldo per bank dari sistem
   var bankSummaryHtml = bankAkun.map(function(a) {
-    var s = fd.saldo[a.kode] || { debit: 0, kredit: 0, net: 0 };
-    var saldoSistem = (s.net || 0) + (extraNet[a.kode] || 0);
+    var s = fd.saldo[a.kode] || { debit: 0, kredit: 0 };
+    var saldoSistem = (s.debit||0) - (s.kredit||0);
     var savedActual = parseFloat(actualBalances[a.kode]) || 0;
     var selisih = savedActual ? (saldoSistem - savedActual) : 0;
     var statusBadge = !savedActual ? '<span class="badge badge-neutral">Belum diisi</span>'
@@ -13587,6 +13592,39 @@ async function tambahPemakaian(id) {
   navigate('portal-aset');
 }
 
+async function carryOverSaldoAwal() {
+  var tahunTarget = _saldoAwalTahun;
+  var tahunLalu = tahunTarget - 1;
+  if (!confirm('Peringatan: Aksi ini akan menimpa saldo awal tahun ' + tahunTarget + ' dengan saldo akhir dari tahun ' + tahunLalu + '.\n\nLanjutkan?')) return;
+
+  showLoading(true);
+  try {
+    var fd = await getFinancialData(tahunLalu);
+    var targetData = await KDB.getSetting('saldo_awal_' + tahunTarget, {});
+
+    // getFinancialData menghitung 'net' sebagai (debit-kredit) untuk akun Debit
+    // dan (kredit-debit) untuk akun Kredit. Nilai net ini adalah saldo awal tahun berikutnya.
+    Object.keys(fd.saldo).forEach(function(kode) {
+      var s = fd.saldo[kode];
+      // Hanya bawa saldo neraca (1, 2, 3) ke tahun berikutnya.
+      // Pendapatan dan Beban (4, 5, 6) biasanya dimulai dari 0 (atau ditutup ke Ekuitas).
+      if (kode.charAt(0) === '1' || kode.charAt(0) === '2' || kode.charAt(0) === '3') {
+        var net = s.net || 0;
+        if (Math.abs(net) > 0.01) targetData[kode] = net;
+        else delete targetData[kode];
+      }
+    });
+
+    await KDB.saveSetting('saldo_awal_' + tahunTarget, targetData);
+    showAlert('Berhasil carry over saldo dari tahun ' + tahunLalu + ' ke ' + tahunTarget);
+    loadSaldoAwal(tahunTarget);
+  } catch(e) {
+    console.error('Carry over error:', e);
+    showAlert('Gagal carry over saldo!', 'danger');
+  }
+  showLoading(false);
+}
+
 // ===== SALDO AWAL =====
 async function renderSaldoAwal() {
   var akun = await getAkun();
@@ -13619,6 +13657,7 @@ async function renderSaldoAwal() {
     + '</table></div>'
     + '<div class="mt-12 flex-row">'
     + '<button class="btn btn-primary" onclick="simpanSaldoAwal()">Simpan Saldo Awal</button>'
+    + '<button class="btn btn-warning" onclick="carryOverSaldoAwal()">🔄 Carry Over dari Tahun Lalu</button>'
     + '<button class="btn btn-outline" onclick="resetSaldoAwal()">Reset Semua ke 0</button>'
     + '</div></div>';
 }
@@ -13677,9 +13716,19 @@ async function renderPrintBundle() {
   var saldo = {};
   akun.forEach(function(a) { saldo[a.kode] = { akun: a, debit: 0, kredit: 0, net: 0 }; });
 
-  // === SALDO AWAL: Tambahkan saldo awal tahun berjalan (sama seperti getFinancialData) ===
+  // === TENTUKAN TAHUN TARGET BERDASARKAN FILTER ===
   var tahunSekarang = new Date().getFullYear();
-  var saldoAwalData = await KDB.getSetting('saldo_awal_' + tahunSekarang, {});
+  var targetYear = tahunSekarang;
+  if (_printFilterMode === 'year' && _printFilterYear) {
+    targetYear = parseInt(_printFilterYear);
+  } else if (_printFilterMode === 'month' && _printFilterMonth) {
+    targetYear = parseInt(_printFilterMonth.split('-')[0]);
+  } else if (_printFilterMode === 'date' && _printFilterDate) {
+    targetYear = parseInt(_printFilterDate.split('-')[0]);
+  }
+
+  // === SALDO AWAL: Tambahkan saldo awal tahun target ===
+  var saldoAwalData = await KDB.getSetting('saldo_awal_' + targetYear, {});
   Object.keys(saldoAwalData).forEach(function(kode) {
     var nominal = parseFloat(saldoAwalData[kode]) || 0;
     if (nominal === 0) return;
@@ -13699,7 +13748,12 @@ async function renderPrintBundle() {
     }
   });
 
-  jurnal.filter(function(j) { return j.tipe !== 'penutup'; }).forEach(function(j) {
+  // === JURNAL: Tambahkan transaksi jurnal pada TAHUN TARGET ===
+  jurnal.filter(function(j) {
+    var isNotPenutup = j.tipe !== 'penutup';
+    var tglTahun = j.tanggal ? parseInt(j.tanggal.substring(0, 4)) : 0;
+    return isNotPenutup && (tglTahun === targetYear);
+  }).forEach(function(j) {
     (j.lines || []).forEach(function(l) {
       if (!l.akun) return;
       if (!saldo[l.akun]) {
@@ -16563,6 +16617,16 @@ function handleChatFileChange(input) {
   }
 }
 
+function handleChatPasteOld(event) {
+  var items = (event.clipboardData || event.originalEvent.clipboardData).items;
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].kind === 'file') {
+      var blob = items[i].getAsFile();
+      processChatFile(blob);
+    }
+  }
+}
+
 function processChatFile(file) {
   if (file.size > 800000) {
     showAlert('File terlalu besar! Maksimal 800KB untuk menjaga performa chat.', 'danger');
@@ -16591,7 +16655,7 @@ async function sendPortalChatMessage(overrideText, fileObj) {
 
   if (!txt && !fileObj) return;
 
-  // Don't show global loading overlay for chat (keeps UI interactive)
+  showLoading(true);
   var msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
   var msg = {
     id: msgId,
@@ -16608,18 +16672,15 @@ async function sendPortalChatMessage(overrideText, fileObj) {
     msg.fileType = fileObj.type;
   }
 
-  // Clear input immediately for better UX
   if (input && overrideText === undefined) input.value = '';
 
   await KDB.save('chat_messages', msgId, msg);
+  showLoading(false);
 
-  // Manually trigger a UI update so the user sees their message instantly
-  // instead of waiting for the Firestore snapshot (which has a 3s self-ignore window)
-  KDB.getAll('chat_messages').then(function(msgs) {
-    if (currentSection === 'portal-komunikasi') {
-      updateChatMessageList(msgs);
-    }
-  });
+  // Re-render local view
+  if (currentSection === 'portal-komunikasi') {
+    navigate('portal-komunikasi');
+  }
 }
 
 // ── PORTAL KOMUNIKASI WIDGET FOR DASHBOARD ──────────────────────────────────────────
@@ -16687,13 +16748,9 @@ async function sendDashChatMessage() {
   input.value = '';
   await KDB.save('chat_messages', msgId, msg);
   
-  // Dashboard widget will update via window.onKDBUpdate if needed,
-  // or we can refresh just the widget partially.
+  // Re-render dashboard
   if (currentSection === 'lap-dashboard') {
-    renderPortalKomunikasiWidget().then(function(html) {
-       var widget = document.getElementById('dash-chat-widget-container');
-       if (widget) widget.innerHTML = html;
-    });
+    navigate('lap-dashboard');
   }
 }
 
@@ -16703,7 +16760,7 @@ function showChatToastNotification(messages) {
   if (!messages || messages.length === 0) return;
 
   // Sort descending to get latest
-  const sorted = messages.sort((a,b) => (a.timestamp||'').localeCompare(b.timestamp||''));
+  const sorted = messages.sort((a,b) => (b.timestamp||'').localeCompare(a.timestamp||''));
   const latest = sorted[0];
 
   if (_lastProcessedChatId === latest.id) return;
@@ -16712,20 +16769,6 @@ function showChatToastNotification(messages) {
   // Don't show toast if it is our own message
   if (latest.sender === KU.username) return;
 
-  // 1. Browser Push Notification (Native)
-  if (window.Notification && Notification.permission === 'granted') {
-    try {
-      var n = new Notification('💬 Pesan Baru: ' + (latest.senderName || latest.sender), {
-        body: latest.text || (latest.fileData ? '[Lampiran File]' : ''),
-        icon: '/icons/icon-192x192.png',
-        tag: 'chat_' + latest.sender,
-        renotify: true
-      });
-      n.onclick = function() { window.focus(); navigate('portal-komunikasi'); };
-    } catch(e) { console.warn('Native chat notif error:', e); }
-  }
-
-  // 2. In-app Toast UI
   // Increment unread count
   var count = parseInt(_klget('k_unread_chat_count', '0')) || 0;
   count++;
@@ -16850,19 +16893,6 @@ function showNotifToast(notifikasi) {
   _lastProcessedNotifId = latest.id;
   if (KU && latest.createdBy === KU.username) return;
 
-  // 1. Browser Push Notification (Native)
-  if (window.Notification && Notification.permission === 'granted') {
-    try {
-      var n = new Notification('🔔 ' + (latest.judul || 'Notifikasi Baru'), {
-        body: latest.pesan || '',
-        icon: '/icons/icon-192x192.png',
-        tag: 'notif_' + latest.id
-      });
-      n.onclick = function() { window.focus(); };
-    } catch(e) { console.warn('Native notif error:', e); }
-  }
-
-  // 2. In-app Alert UI
   playNotificationSound();
   showAlert('🔔 ' + (latest.judul || 'Notifikasi') + ': ' + (latest.pesan || ''), 'info', 5000);
   updateNotifBadge();
@@ -16873,6 +16903,15 @@ function renderPageHeader(title) {
     + '<button class="btn btn-outline btn-sm" onclick="goBack()" style="padding:6px 10px;border-radius:8px">Back</button>'
     + '<div class="page-title" style="margin-bottom:0">' + title + '</div>'
     + '</div>';
+}
+
+async function fixMandiriBalancePrompt() {
+  var target = 102817055.37;
+  if (confirm('Set Saldo Aktual Bank Mandiri ke Rp. 102.817.055,37?')) {
+    await saveStoredBankActualBalance('1-1101-2', target);
+    showAlert('Saldo Aktual Mandiri berhasil diperbarui!');
+    if (typeof navigate === 'function') navigate('lap-dashboard');
+  }
 }
 
 function goBack() {
@@ -16892,13 +16931,6 @@ window.onKDBUpdate = function(col, items) {
     // Jika sedang di halaman chat, update secara parsial
     if (currentSection === 'portal-komunikasi') {
       updateChatMessageList(items);
-    }
-    // Jika sedang di dashboard, update widget chat
-    if (currentSection === 'lap-dashboard') {
-      renderPortalKomunikasiWidget().then(function(html) {
-        var widget = document.getElementById('dash-chat-widget-container');
-        if (widget) widget.innerHTML = html;
-      });
     }
   } else if (col === 'notifikasi') {
     showNotifToast(items);
@@ -16961,392 +16993,72 @@ function updateChatMessageList(rawMsgs) {
 
   container.innerHTML = msgsHtml;
 
-  // Scroll ke bawah hanya jika user memang sedang di bawah (atau ada pesan baru dan itu dari saya)
+  // Scroll ke bawah hanya jika user memang sedang di bawah (atau pesan dari diri sendiri)
   if (isAtBottom) {
     container.scrollTop = container.scrollHeight;
   }
 }
 
-// ===== KEUANGAN IMS MODULE =====
-async function renderIMSSubMenu() {
-  showLoading(true);
-  try {
-    const payroll = await KDB.getAllIMS('hrd_penggajian');
-    const imsTransactions = await KDB.getAll('ims_transactions');
-    const month = today().substring(0,7);
-    const currentPayroll = payroll.filter(function(p) { return p.periode === month; });
-    
-    const categories = [
-      { id: 'ims-penggajian', label: 'Penggajian', icon: '💰' },
-      { id: 'ims-tax-bpjs', label: 'Tax & BPJS', icon: '🧮' },
-      { id: 'ims-insentif', label: 'Insentif', icon: '🏆' },
-      { id: 'ims-reimbursement', label: 'Reimbursement', icon: '📄' },
-      { id: 'ims-kasbon-loan', label: 'Kasbon & Loan', icon: '💳' },
-      { id: 'ims-tunjangan', label: 'Tunjangan', icon: '🎁' },
-    ];
-
-    let catHtml = '';
-    categories.forEach(function(c) {
-      catHtml += '<div class="stat-box" onclick="navigate(\'' + c.id + '\')" style="cursor:pointer; text-align:center; border-top:3px solid #DB7093">'
-        + '<div style="font-size: 2.2rem; margin-bottom: 8px;">' + c.icon + '</div>'
-        + '<div class="lbl" style="font-weight: 700; color: #333; font-size:0.8rem">' + c.label + '</div>'
-        + '</div>';
-    });
-
-    const html = '<div class="page-title">💰 Portal Keuangan IMS (Live)</div>'
-      + '<div class="card">'
-      + '<div class="card-header"><h2>Integrasi Sistem HR & Legal</h2></div>'
-      + '<div class="stats-row" style="grid-template-columns: 1fr 1fr;">'
-      + '<div class="stat-box" style="padding: 24px; border-left: 5px solid #DB7093;">'
-      + '<div class="val" style="font-size: 2.2rem; color: #DB7093;">' + currentPayroll.length + '</div>'
-      + '<div class="lbl">Payroll Periode ' + month + '</div>'
-      + '</div>'
-      + '<div class="stat-box green" style="padding: 24px; border-left: 5px solid #10b981;">'
-      + '<div class="val" style="font-size: 2.2rem; color: #10b981;">' + imsTransactions.length + '</div>'
-      + '<div class="lbl">Total Integrasi Selesai</div>'
-      + '</div>'
-      + '</div>'
-      + '</div>'
-      
-      + '<div class="card">'
-      + '<div class="card-header"><h2>Pilih Kategori untuk Sinkronisasi</h2></div>'
-      + '<div class="stats-row" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px;">'
-      + catHtml
-      + '</div>'
-      + '</div>'
-
-      + '<div class="card">'
-      + '<div class="card-header"><h2>Panduan Integrasi Live</h2></div>'
-      + '<p style="color: #666; font-size: 0.9rem; line-height:1.6;">'
-      + 'Data di bawah ini ditarik secara <b>Real-time</b> dari aplikasi HR & Legal (IMS). Anda dapat mengajukan sinkronisasi yang nantinya akan diverifikasi oleh Admin Keuangan.'
-      + '</p>'
-      + '</div>';
-    showLoading(false);
-    return html;
-  } catch(e) { 
-    showLoading(false);
-    return '<div class="alert alert-danger">Gagal memuat portal IMS: ' + e.message + '</div>';
-  }
-}
-
-// ===== KEUANGAN IMS: LIVE SUB-MODULES =====
-
-async function renderIMSPayroll() {
-  const list = await KDB.getAllIMS('hrd_penggajian');
-  let rows = '';
-  list.slice().sort(function(a,b){ return (b.periode||'').localeCompare(a.periode||''); }).forEach(function(p) {
-    const statusStr = p.isSynced ? '<span class="badge badge-success">✓ Diajukan</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'payroll\', \'' + p.id + '\')">Sinkronisasi</button>';
-    rows += '<tr>'
-      + '<td class="fw-bold">' + (p.nama||'-') + '</td>'
-      + '<td>' + (p.periode||'-') + '</td>'
-      + '<td>' + fmtRp(p.gajiPokok) + '</td>'
-      + '<td>' + fmtRp(p.tunjangan) + '</td>'
-      + '<td>' + fmtRp(p.insentif) + '</td>'
-      + '<td>' + fmtRp(p.reimbursement) + '</td>'
-      + '<td class="text-red">' + fmtRp(p.potongan) + '</td>'
-      + '<td class="fw-bold text-green">' + fmtRp(p.totalBersih) + '</td>'
-      + '<td>' + statusBadge(p.status || 'Success') + '</td>'
-      + '<td class="tbl-actions">' + statusStr + '</td>'
-      + '</tr>';
-  });
-
-  return '<div class="page-title">💰 IMS: Penggajian (Live)</div>'
+// ===== KEUANGAN IMS =====
+async function renderIMSFinance() {
+  return '<div class="page-title">🏢 Keuangan IMS</div>'
     + '<div class="card">'
-    + '<div class="card-header"><h2>Data Gaji dari IMS</h2></div>'
-    + '<div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Periode</th><th>Gapok</th><th>Tunj</th><th>Insentif</th><th>Reimb</th><th>Pot</th><th>THP</th><th>Status</th><th>Aksi</th></tr></thead><tbody>' + (rows || '<tr><td colspan="10" class="text-center">Tidak ada data payroll ditemukan</td></tr>') + '</tbody></table></div>'
+    + '  <div class="card-header"><h2>Dashboard Keuangan IMS</h2></div>'
+    + '  <div class="stats-row">'
+    + '    <div class="stat-box"><div class="val">IMS</div><div class="lbl">Sistem Terintegrasi</div></div>'
+    + '    <div class="stat-box green"><div class="val">Aktif</div><div class="lbl">Status Menu</div></div>'
+    + '  </div>'
+    + '  <div class="alert alert-info">Selamat datang di modul Keuangan IMS. Gunakan submenu untuk navigasi lebih lanjut.</div>'
     + '</div>';
 }
 
-async function renderIMSTaxBPJS() {
-  const payroll = await KDB.getAllIMS('hrd_penggajian');
-  const month = today().substring(0,7);
-  const current = payroll.filter(function(p) { return p.periode === month; });
-  
-  let rows = '';
-  current.forEach(function(p) {
-    rows += '<tr><td>' + (p.nama||'-') + '</td><td>' + fmtRp(p.gajiPokok) + '</td><td>' + fmtRp(p.bpjsKesehatan) + '</td><td>' + fmtRp(p.bpjsTK) + '</td><td>' + fmtRp(p.pph21) + '</td><td class="text-red">' + fmtRp(parseFloat(p.potongan)||0) + '</td></tr>';
-  });
-
-  return '<div class="page-title">🧮 IMS: Ringkasan Tax & BPJS (Live)</div>'
+async function renderIMSMenuKeuangan() {
+  return '<div class="page-title">📊 Menu Keuangan IMS</div>'
     + '<div class="card">'
-    + '<div class="card-header"><h2>Potongan Pajak & BPJS Bulan Ini</h2></div>'
-    + '<div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Gapok</th><th>BPJS Kes</th><th>BPJS TK</th><th>PPH 21</th><th>Total Potongan</th></tr></thead><tbody>'
-    + (rows || '<tr><td colspan="6" class="text-center">Tidak ada data untuk periode ini</td></tr>')
-    + '</tbody></table></div></div>';
-}
-
-async function renderIMSInsentif() {
-  const list = await KDB.getAllIMS('hrd_insentif');
-  let rows = '';
-  list.forEach(function(i) {
-    const statusStr = i.isSynced ? '<span class="badge badge-success">✓ Diajukan</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'insentif\', \'' + i.id + '\')">Sinkronisasi</button>';
-    const basis = i.jenis === 'KPI' ? 'KPI ' + (i.kpiScore||0) : (i.jumlahSiswa||0) + ' Siswa';
-    rows += '<tr>'
-      + '<td class="fw-bold">' + (i.nama||'-') + '</td>'
-      + '<td><span class="chip">' + (i.jenis||'-') + '</span></td>'
-      + '<td>' + basis + '</td>'
-      + '<td class="fw-bold text-green">' + fmtRp(i.nominal) + '</td>'
-      + '<td>' + (i.periode||'-') + '</td>'
-      + '<td class="tbl-actions">' + statusStr + '</td>'
-      + '</tr>';
-  });
-
-  return '<div class="page-title">🏆 IMS: Insentif Kinerja (Live)</div>'
-    + '<div class="card"><div class="card-header"><h2>Daftar Insentif Terkini</h2></div>'
-    + '<div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Jenis</th><th>Basis</th><th>Nominal</th><th>Periode</th><th>Aksi</th></tr></thead><tbody>' + (rows || '<tr><td colspan="6" class="text-center">Tidak ada data insentif</td></tr>') + '</tbody></table></div></div>';
-}
-
-async function renderIMSReimbursement() {
-  const list = await KDB.getAllIMS('hrd_reimbursement');
-  let rows = '';
-  list.forEach(function(r) {
-    const statusStr = r.isSynced ? '<span class="badge badge-success">✓ Diajukan</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'reimbursement\', \'' + r.id + '\')">Sinkronisasi</button>';
-    rows += '<tr>'
-      + '<td class="fw-bold">' + (r.nama||'-') + '</td>'
-      + '<td>' + (r.kategori||'-') + '</td>'
-      + '<td>' + fmtDate(r.createdAt) + '</td>'
-      + '<td class="fw-bold">' + fmtRp(r.jumlah) + '</td>'
-      + '<td>' + statusBadge(r.status || 'Approved') + '</td>'
-      + '<td class="tbl-actions">' + statusStr + '</td>'
-      + '</tr>';
-  });
-
-  return '<div class="page-title">📄 IMS: Reimbursement (Live)</div>'
-    + '<div class="card"><div class="card-header"><h2>Daftar Klaim Disetujui</h2></div>'
-    + '<div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Kategori</th><th>Tanggal</th><th>Jumlah</th><th>Status</th><th>Aksi</th></tr></thead><tbody>' + (rows || '<tr><td colspan="6" class="text-center">Belum ada reimburse</td></tr>') + '</tbody></table></div></div>';
-}
-
-async function renderIMSKasbonLoan() {
-  const list = await KDB.getAllIMS('hrd_kasbon');
-  let rows = '';
-  list.forEach(function(k) {
-    const statusStr = k.isSynced ? '<span class="badge badge-success">✓ Diajukan</span>' : '<button class="btn btn-xs btn-info" onclick="syncIMSToFinance(\'kasbon\', \'' + k.id + '\')">Sinkronisasi</button>';
-    const total = k.jumlah || 0;
-    const cicilan = k.cicilan || 1;
-    const angsuran = Math.ceil(total / cicilan);
-    const sisa = Math.max(0, total - (k.sudahBayar || 0));
-    rows += '<tr>'
-      + '<td class="fw-bold">' + (k.nama||'-') + '</td>'
-      + '<td>' + (k.jenis || 'Kasbon') + '</td>'
-      + '<td>' + fmtRp(total) + '</td>'
-      + '<td>' + fmtRp(angsuran) + '/bln</td>'
-      + '<td>' + cicilan + ' bln</td>'
-      + '<td class="fw-bold text-red">' + fmtRp(sisa) + '</td>'
-      + '<td class="tbl-actions">' + statusStr + '</td>'
-      + '</tr>';
-  });
-
-  return '<div class="page-title">💳 IMS: Kasbon & Loan (Live)</div>'
-    + '<div class="card">'
-    + '<div class="card-header"><h2>Daftar Pinjaman Aktif</h2></div>'
-    + (rows ? '<div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Tipe</th><th>Total</th><th>Angsuran</th><th>Tenor</th><th>Sisa</th><th>Aksi</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-      : '<div class="empty-state"><span class="icon">💳</span>Tidak ada data pinjaman aktif di sistem IMS</div>')
+    + '  <div class="card-header"><h2>Kelola Keuangan IMS</h2></div>'
+    + '  <p>Pilih sub-menu untuk melihat detail transaksi atau laporan khusus IMS.</p>'
     + '</div>';
 }
 
-async function renderIMSTunjangan() {
-  const list = await KDB.getAllIMS('hrd_tunjangan');
-  let rows = '';
-  list.forEach(function(t) {
-    rows += '<tr>'
-      + '<td class="fw-bold">' + (t.nama||'-') + '</td>'
-      + '<td>' + (t.jenis||'-') + '</td>'
-      + '<td class="fw-bold text-green">' + fmtRp(t.nominal) + '</td>'
-      + '<td>' + (t.penerima || 'Semua') + '</td>'
-      + '</tr>';
-  });
+async function renderIMSSubKeuangan() {
+  const pdList = await KDB.getAll('permohonan');
+  const imsPD = pdList.filter(p => (p.keterangan||"").toLowerCase().includes("ims")).length;
 
-  return '<div class="page-title">🎁 IMS: Tunjangan & Benefit (Live)</div>'
-    + '<div class="card"><div class="card-header"><h2>Komponen Tunjangan Perusahaan</h2></div>'
-    + '<div class="table-wrap"><table><thead><tr><th>Nama Komponen</th><th>Tipe</th><th>Nominal</th><th>Penerima</th></tr></thead><tbody>' + (rows || '<tr><td colspan="4" class="text-center">Belum ada data tunjangan</td></tr>') + '</tbody></table></div></div>';
-}
-
-// ===== IMS INTEGRATION & VERIFICATION LOGIC =====
-
-async function syncIMSToFinance(module, recordId) {
-  let record;
-  let category = '';
-  let nominal = 0;
-  let keterangan = '';
-  let akunDebit = '5-2200';
-
-  if (module === 'payroll') {
-    const list = await KDB.getAllIMS('hrd_penggajian');
-    record = list.find(function(x){ return x.id === recordId; });
-    category = 'Penggajian';
-    nominal = record.totalBersih || 0;
-    keterangan = 'Gaji Karyawan: ' + record.nama + ' (' + record.periode + ')';
-    akunDebit = '5-1000';
-  } else if (module === 'insentif') {
-    const list = await KDB.getAllIMS('hrd_insentif');
-    record = list.find(function(x){ return x.id === recordId; });
-    category = 'Insentif';
-    nominal = record.nominal;
-    keterangan = 'Insentif ' + (record.jenis||'') + ': ' + record.nama + ' (' + record.periode + ')';
-    akunDebit = '5-1200';
-  } else if (module === 'reimbursement') {
-    const list = await KDB.getAllIMS('hrd_reimbursement');
-    record = list.find(function(x){ return x.id === recordId; });
-    category = 'Reimbursement';
-    nominal = record.jumlah;
-    keterangan = 'Reimbursement ' + record.kategori + ': ' + record.nama;
-    akunDebit = '5-2100';
-  } else if (module === 'kasbon') {
-    const list = await KDB.getAllIMS('hrd_kasbon');
-    record = list.find(function(x){ return x.id === recordId; });
-    category = 'Kasbon';
-    nominal = record.jumlah;
-    keterangan = 'Pencairan Pinjaman: ' + record.nama + ' (' + record.jenis + ')';
-    akunDebit = '1-1400';
-  }
-
-  if (!record) return showAlert('Record tidak ditemukan!', 'danger');
-  if (record.isSynced) return showAlert('Sudah pernah diajukan sinkronisasi!', 'warning');
-
-  if (!confirm('Ajukan data ini untuk diverifikasi Admin Keuangan?')) return;
-
-  showLoading(true);
-  const imsTransId = genId('IMSQ');
-
-  const queueData = {
-    id: imsTransId,
-    type: 'permohonan',
-    category: category,
-    tanggal: today(),
-    nominal: nominal,
-    keterangan: keterangan,
-    module: module,
-    recordId: recordId,
-    status: 'Waiting Verification',
-    akunDebit: akunDebit,
-    requestedBy: KU.username,
-    createdAt: new Date().toISOString()
-  };
-
-  await KDB.save('ims_transactions', imsTransId, queueData);
-  
-  // Mark source record as "Synced" (meaning requested)
-  record.isSynced = true;
-  record.financeQueueId = imsTransId;
-  const colName = module === 'payroll' ? 'hrd_penggajian' : 'hrd_' + module;
-  await KDB.saveIMS(colName, record.id, record);
-
-  kirimNotifikasi('🛡️ Verifikasi IMS Baru', KU.nama + ' mengajukan integrasi data ' + category + ' (' + fmtRp(nominal) + ')', '');
-  
-  showLoading(false);
-  showAlert('Permintaan sinkronisasi diajukan! Menunggu verifikasi Admin.');
-  navigate('ims-' + module);
-}
-
-async function renderIMSVerification() {
-  const list = await KDB.getAll('ims_transactions');
-  const pending = list.filter(function(x) { return x.status === 'Waiting Verification'; });
-  
-  let rows = '';
-  pending.forEach(function(t) {
-    rows += '<tr>'
-      + '<td>' + fmtDate(t.tanggal) + '</td>'
-      + '<td><span class="chip">' + t.category + '</span></td>'
-      + '<td class="fw-bold">' + t.keterangan + '</td>'
-      + '<td class="fw-bold text-blue">' + fmtRp(t.nominal) + '</td>'
-      + '<td>' + t.requestedBy + '</td>'
-      + '<td class="tbl-actions">'
-      + '<button class="btn btn-xs btn-success" onclick="approveIMSIntegration(\'' + t.id + '\')">✅ Setujui</button>'
-      + '<button class="btn btn-xs btn-danger" onclick="rejectIMSIntegration(\'' + t.id + '\')">❌ Tolak</button>'
-      + '</td></tr>';
-  });
-
-  return '<div class="page-title">🛡️ Verifikasi Integrasi IMS</div>'
-    + '<div class="card"><div class="card-header"><h2>Antrian Integrasi Data (' + pending.length + ')</h2></div>'
-    + (rows ? '<div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Kategori</th><th>Keterangan</th><th>Nominal</th><th>Pengaju</th><th>Aksi</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-      : '<div class="empty-state"><span class="icon">🛡️</span>Tidak ada antrian verifikasi</div>')
+  return '<div class="page-title">💰 Sub Menu Keuangan IMS</div>'
+    + '<div class="card">'
+    + '  <div class="card-header"><h2>Transaksi Keuangan IMS</h2></div>'
+    + '  <div class="stats-row">'
+    + '    <div class="stat-box"><div class="val">' + imsPD + '</div><div class="lbl">Permohonan IMS</div></div>'
+    + '  </div>'
+    + '  <div style="display:flex; gap:12px; margin-top:16px; flex-wrap:wrap">'
+    + '    <button class="btn btn-primary" onclick="buatPermohonanIMS()">📤 Buat Permohonan Dana IMS</button>'
+    + '    <button class="btn btn-success" onclick="buatDanaMasukIMS()">📥 Catat Dana Masuk IMS</button>'
+    + '  </div>'
+    + '</div>'
+    + '<div class="card">'
+    + '  <div class="card-header"><h2>Panduan Integrasi</h2></div>'
+    + '  <p class="text-muted">Tombol di atas akan mengarahkan Anda ke form transaksi umum dengan keterangan yang sudah terisi otomatis untuk mempermudah pelacakan data IMS.</p>'
     + '</div>';
 }
 
-async function approveIMSIntegration(id) {
-  const list = await KDB.getAll('ims_transactions');
-  const t = list.find(function(x) { return x.id === id; });
-  if (!t) return;
-  
-  if (!confirm('Setujui integrasi ini? Data akan otomatis menjadi Permohonan Dana.')) return;
-  
-  showLoading(true);
-  const pdId = genId('PD');
-  const approvers = await getApprovers();
-  
-  const pdData = {
-    id: pdId,
-    tipe: 'permohonan',
-    pemohon: t.requestedBy,
-    namaPemohon: '[IMS] ' + t.requestedBy,
-    namaPIC: t.requestedBy,
-    namaLeader: 'Irsan',
-    noPOInvoice: t.recordId,
-    nominal: t.nominal,
-    jatuhTempo: t.tanggal,
-    tipeTransaksi: 'Transfer',
-    namaBank: '-',
-    noRekening: '-',
-    namaRekening: '-',
-    keterangan: t.keterangan,
-    buktiDokumen: '',
-    akunDebit: t.akunDebit || '5-2200',
-    akunKredit: '1-1100',
-    tanggal: t.tanggal,
-    status: STATUS.PENDING_L1,
-    approvalLog: [{ layer: 0, action: 'submit', by: KU.username, nama: KU.nama, at: new Date().toISOString(), catatan: 'Otomatis dibuat dari Portal KEUANGAN IMS (Verified)' }],
-    approvers: approvers,
-    createdBy: t.requestedBy,
-    createdAt: new Date().toISOString(),
-    sumber: 'IMS'
-  };
+window.buatPermohonanIMS = function() {
+  navigate("dana-permohonan");
+  setTimeout(function() {
+    var ketEl = document.getElementById("pd-ket");
+    if (ketEl) {
+      ketEl.value = "IMS - [Keperluan IMS]";
+      ketEl.focus();
+    }
+  }, 500);
+};
 
-  await KDB.save('permohonan', pdId, pdData);
-  
-  // Update queue status
-  t.status = 'Integrated';
-  t.verifiedBy = KU.username;
-  t.verifiedAt = new Date().toISOString();
-  t.financeId = pdId;
-  await KDB.save('ims_transactions', id, t);
-  
-  // Update source record
-  const colName = t.module === 'payroll' ? 'hrd_penggajian' : 'hrd_' + t.module;
-  const sourceRecord = await KDB.getIMS(colName, t.recordId);
-  if (sourceRecord) {
-    sourceRecord.financeId = pdId;
-    await KDB.saveIMS(colName, sourceRecord.id, sourceRecord);
-  }
-
-  showLoading(false);
-  showAlert('Integrasi disetujui! Permohonan dana #' + pdId + ' telah dibuat.');
-  renderSection('ims-verification');
-}
-
-async function rejectIMSIntegration(id) {
-  const list = await KDB.getAll('ims_transactions');
-  const t = list.find(function(x) { return x.id === id; });
-  if (!t) return;
-  
-  const reason = prompt('Alasan penolakan:');
-  if (reason === null) return;
-  
-  showLoading(true);
-  t.status = 'Rejected';
-  t.rejectReason = reason;
-  t.rejectedBy = KU.username;
-  await KDB.save('ims_transactions', id, t);
-  
-  // Unlock source record
-  const colName = t.module === 'payroll' ? 'hrd_penggajian' : 'hrd_' + t.module;
-  const sourceRecord = await KDB.getIMS(colName, t.recordId);
-  if (sourceRecord) {
-    delete sourceRecord.isSynced;
-    delete sourceRecord.financeQueueId;
-    await KDB.saveIMS(colName, sourceRecord.id, sourceRecord);
-  }
-  
-  showLoading(false);
-  showAlert('Integrasi ditolak.');
-  renderSection('ims-verification');
-}
+window.buatDanaMasukIMS = function() {
+  navigate("dana-masuk");
+  setTimeout(function() {
+    var ketEl = document.getElementById("dm-ket");
+    if (ketEl) {
+      ketEl.value = "IMS - [Keterangan Dana Masuk]";
+      ketEl.focus();
+    }
+  }, 500);
+};

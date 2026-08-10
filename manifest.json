@@ -4,7 +4,7 @@
   "description": "Sistem Keuangan IJEF Corp - Laporan Keuangan, Pencatatan, dan Analisis",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#111115",
   "theme_color": "#a30000",
   "categories": ["business", "productivity"],
