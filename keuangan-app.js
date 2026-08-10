@@ -17104,6 +17104,27 @@ async function renderIMSSubKeuangan() {
     return item.status && item.status.indexOf('Pending') === 0;
   }).length;
 
+  var pdRows = imsPermohonan.slice().sort(function(a,b){ return (b.tanggal||'').localeCompare(a.tanggal||''); }).map(function(p) {
+    var badgeColor = p.status === 'Approved' ? 'green' : (p.status && p.status.indexOf('Rejected') === 0 ? 'red' : '');
+    return '<tr>'
+      + '<td>' + fmtDate(p.tanggal) + '</td>'
+      + '<td class="fw-bold">' + (p.namaPIC || p.namaPemohon || '-') + '</td>'
+      + '<td>' + (p.keterangan || p.ket || '-') + '</td>'
+      + '<td class="fw-bold text-green">' + fmtRp(p.nominal || p.jumlah || 0) + '</td>'
+      + '<td><span class="badge ' + badgeColor + '">' + (p.status || '-') + '</span></td>'
+      + '</tr>';
+  }).join('');
+
+  var dmRows = imsDanaMasuk.slice().sort(function(a,b){ return (b.tanggal||'').localeCompare(a.tanggal||''); }).map(function(d) {
+    return '<tr>'
+      + '<td>' + fmtDate(d.tanggal) + '</td>'
+      + '<td class="fw-bold">' + (d.sumber || d.namaPIC || '-') + '</td>'
+      + '<td>' + (d.keterangan || d.ket || '-') + '</td>'
+      + '<td class="fw-bold text-green">' + fmtRp(d.nominal || d.jumlah || 0) + '</td>'
+      + '<td>' + (d.tipeTransaksi || '-') + '</td>'
+      + '</tr>';
+  }).join('');
+
   return '<div class="page-title">💰 Sub Menu Keuangan IMS</div>'
     + '<div class="card">'
     + '  <div class="card-header"><h2>Transaksi Keuangan IMS</h2></div>'
@@ -17117,6 +17138,18 @@ async function renderIMSSubKeuangan() {
     + '    <button class="btn btn-primary" onclick="buatDanaMasukIMS()">📥 Catat Dana Masuk IMS</button>'
     + '    <button class="btn btn-outline" onclick="navigate(\'dana-approval\')">✅ Lihat Approval IMS</button>'
     + '  </div>'
+    + '</div>'
+    + '<div class="card">'
+    + '  <div class="card-header"><h2>Riwayat Permohonan Dana IMS</h2></div>'
+    + (imsPermohonan.length === 0
+        ? '<div class="alert alert-info">Belum ada permohonan dana dengan keterangan IMS.</div>'
+        : '<div class="table-responsive"><table class="table"><thead><tr><th>Tanggal</th><th>PIC</th><th>Keterangan</th><th>Nominal</th><th>Status</th></tr></thead><tbody>' + pdRows + '</tbody></table></div>')
+    + '</div>'
+    + '<div class="card">'
+    + '  <div class="card-header"><h2>Riwayat Dana Masuk IMS</h2></div>'
+    + (imsDanaMasuk.length === 0
+        ? '<div class="alert alert-info">Belum ada dana masuk dengan keterangan IMS.</div>'
+        : '<div class="table-responsive"><table class="table"><thead><tr><th>Tanggal</th><th>Sumber</th><th>Keterangan</th><th>Nominal</th><th>Tipe Transaksi</th></tr></thead><tbody>' + dmRows + '</tbody></table></div>')
     + '</div>'
     + '<div class="card">'
     + '  <div class="card-header"><h2>Panduan Integrasi</h2></div>'
