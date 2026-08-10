@@ -50,6 +50,8 @@ const MENU = [
       { id: 'ims-finance',        label: 'Dashboard IMS',          icon: '📊', minRole: 'viewer' },
       { id: 'kalk-inventori-atk', label: 'Inventori Stok ATK',     icon: '📋', minRole: 'viewer' },
       { id: 'ims-sub-keu',        label: 'Transaksi Keuangan IMS', icon: '💰', minRole: 'viewer' },
+      { id: 'ims-sync-perjalanan',label: 'Perjalanan Dinas IMS',   icon: '✈️', minRole: 'viewer' },
+      { id: 'ims-sync-lap-keu',   label: 'Laporan Keuangan IMS',   icon: '📑', minRole: 'viewer' },
     ]},
     { id: 'portal-aset',     label: 'Portal Perlengkapan & Aset', icon: '📦', minRole: 'viewer' },
   ]},
@@ -119,7 +121,7 @@ const MENU = [
 // ===== HELPERS =====
 function isIMSMenuItem(item) {
   if (!item) return false;
-  return ['ims-menu-keu', 'ims-finance', 'ims-sub-keu', 'kalk-inventori-atk'].includes(item.id);
+  return ['ims-menu-keu', 'ims-finance', 'ims-sub-keu', 'kalk-inventori-atk', 'ims-sync-perjalanan', 'ims-sync-lap-keu'].includes(item.id);
 }
 
 function showLoading(v) {
@@ -17104,6 +17106,27 @@ async function renderIMSSubKeuangan() {
     return item.status && item.status.indexOf('Pending') === 0;
   }).length;
 
+  var pdRows = imsPermohonan.slice().sort(function(a,b){ return (b.tanggal||'').localeCompare(a.tanggal||''); }).map(function(p) {
+    var badgeColor = p.status === 'Approved' ? 'green' : (p.status && p.status.indexOf('Rejected') === 0 ? 'red' : '');
+    return '<tr>'
+      + '<td>' + fmtDate(p.tanggal) + '</td>'
+      + '<td class="fw-bold">' + (p.namaPIC || p.namaPemohon || '-') + '</td>'
+      + '<td>' + (p.keterangan || p.ket || '-') + '</td>'
+      + '<td class="fw-bold text-green">' + fmtRp(p.nominal || p.jumlah || 0) + '</td>'
+      + '<td><span class="badge ' + badgeColor + '">' + (p.status || '-') + '</span></td>'
+      + '</tr>';
+  }).join('');
+
+  var dmRows = imsDanaMasuk.slice().sort(function(a,b){ return (b.tanggal||'').localeCompare(a.tanggal||''); }).map(function(d) {
+    return '<tr>'
+      + '<td>' + fmtDate(d.tanggal) + '</td>'
+      + '<td class="fw-bold">' + (d.sumber || d.namaPIC || '-') + '</td>'
+      + '<td>' + (d.keterangan || d.ket || '-') + '</td>'
+      + '<td class="fw-bold text-green">' + fmtRp(d.nominal || d.jumlah || 0) + '</td>'
+      + '<td>' + (d.tipeTransaksi || '-') + '</td>'
+      + '</tr>';
+  }).join('');
+
   return '<div class="page-title">💰 Sub Menu Keuangan IMS</div>'
     + '<div class="card">'
     + '  <div class="card-header"><h2>Transaksi Keuangan IMS</h2></div>'
@@ -17117,6 +17140,18 @@ async function renderIMSSubKeuangan() {
     + '    <button class="btn btn-primary" onclick="buatDanaMasukIMS()">📥 Catat Dana Masuk IMS</button>'
     + '    <button class="btn btn-outline" onclick="navigate(\'dana-approval\')">✅ Lihat Approval IMS</button>'
     + '  </div>'
+    + '</div>'
+    + '<div class="card">'
+    + '  <div class="card-header"><h2>Riwayat Permohonan Dana IMS</h2></div>'
+    + (imsPermohonan.length === 0
+        ? '<div class="alert alert-info">Belum ada permohonan dana dengan keterangan IMS.</div>'
+        : '<div class="table-responsive"><table class="table"><thead><tr><th>Tanggal</th><th>PIC</th><th>Keterangan</th><th>Nominal</th><th>Status</th></tr></thead><tbody>' + pdRows + '</tbody></table></div>')
+    + '</div>'
+    + '<div class="card">'
+    + '  <div class="card-header"><h2>Riwayat Dana Masuk IMS</h2></div>'
+    + (imsDanaMasuk.length === 0
+        ? '<div class="alert alert-info">Belum ada dana masuk dengan keterangan IMS.</div>'
+        : '<div class="table-responsive"><table class="table"><thead><tr><th>Tanggal</th><th>Sumber</th><th>Keterangan</th><th>Nominal</th><th>Tipe Transaksi</th></tr></thead><tbody>' + dmRows + '</tbody></table></div>')
     + '</div>'
     + '<div class="card">'
     + '  <div class="card-header"><h2>Panduan Integrasi</h2></div>'
