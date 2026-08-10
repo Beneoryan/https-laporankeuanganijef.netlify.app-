@@ -1524,29 +1524,6 @@ function getKasBankAccounts(akunList) {
 }
 
 // ===== DASHBOARD =====
-function renderIMSHighlights(allPD, allDM) {
-  const imsPermohonan = (allPD || []).filter(isIMSRecord);
-  const imsDanaMasuk = (allDM || []).filter(isIMSRecord);
-  const pendingIMS = imsPermohonan.filter(function(item) {
-    return item.status && item.status.indexOf('Pending') === 0;
-  }).length;
-
-  return '<div class="card">'
-    + '<div class="card-header"><h2>🏢 Perubahan Keuangan IMS</h2><button class="btn btn-sm btn-outline" onclick="navigate(\'ims-finance\')">Buka Dashboard IMS</button></div>'
-    + '<div class="alert alert-info" style="margin-bottom:16px">Perubahan Keuangan IMS ada di menu <b>Transaksi → Keuangan IMS</b> dan sekarang juga ditampilkan di dashboard utama agar lebih mudah ditemukan.</div>'
-    + '<div class="stats-row">'
-    + '<div class="stat-box"><div class="val">' + imsPermohonan.length + '</div><div class="lbl">Permohonan IMS</div></div>'
-    + '<div class="stat-box green"><div class="val">' + imsDanaMasuk.length + '</div><div class="lbl">Dana Masuk IMS</div></div>'
-    + '<div class="stat-box red"><div class="val">' + pendingIMS + '</div><div class="lbl">Pending IMS</div></div>'
-    + '</div>'
-    + '<div style="display:flex;gap:12px;flex-wrap:wrap">'
-    + '<button class="btn btn-primary" onclick="navigate(\'ims-finance\')">📊 Dashboard IMS</button>'
-    + '<button class="btn btn-outline" onclick="navigate(\'ims-sub-keu\')">💰 Transaksi Keuangan IMS</button>'
-    + '<button class="btn btn-outline" onclick="navigate(\'kalk-inventori-atk\')">📋 Inventori Stok ATK</button>'
-    + '</div>'
-    + '</div>';
-}
-
 async function renderDashboard() {
   if (KU.role === 'nanda') return renderPortalAset();
   if (KU.role === 'viewer' || KU.role === 'leader') return renderDashboardApprover();
@@ -1671,7 +1648,6 @@ async function renderDashboard() {
     + '<button class="btn btn-sm btn-outline no-print" onclick="fixMandiriBalancePrompt()" style="font-size:0.7rem;padding:4px 8px">⚙️ Set Saldo Mandiri</button>'
     + '</div>'
     + perusahaanBanner + pendingBanner
-    + renderIMSHighlights(allPD, allDM)
     + '<div class="responsive-grid-2">'
     + '<div class="stat-box green" style="padding:24px;border-left-width:5px"><div class="val-large">' + fmtRp(totalKasBank) + '</div><div class="lbl">Total Kas & Bank</div></div>'
     + '<div class="stat-box ' + (labaRugi >= 0 ? 'green' : 'red') + '" style="padding:24px;border-left-width:5px"><div class="val-large">' + fmtRp(labaRugi) + '</div><div class="lbl">Laba/Rugi Berjalan</div></div>'
@@ -1820,7 +1796,6 @@ async function renderDashboardApprover() {
 
   return '<div class="page-title">🎯 Dashboard Keuangan</div>'
     + perusahaanBanner + pendingBanner
-    + renderIMSHighlights(allPD, allDM)
     // Primary KPI row
     + '<div class="responsive-grid-2">'
     + '<div class="stat-box green" style="padding:24px;border-left-width:5px"><div class="val-large">' + fmtRp(totalKasBank2) + '</div><div class="lbl">Total Kas & Bank</div></div>'
@@ -17070,6 +17045,24 @@ async function renderIMSFinance() {
   const pendingIMS = imsPermohonan.filter(function(item) {
     return item.status && item.status.indexOf('Pending') === 0;
   }).length;
+  const syncMenus = [
+    { id: 'ims-sync-perjalanan', icon: '✈️', title: 'Perjalanan Dinas', desc: 'Sinkron perjalanan dinas dari IMS ke permohonan dana dan approval.' },
+    { id: 'ims-sync-penggajian', icon: '💰', title: 'Penggajian', desc: 'Tarik kebutuhan pembayaran gaji dari menu Penggajian IMS.' },
+    { id: 'ims-sync-tax-bpjs', icon: '🧮', title: 'Tax & BPJS', desc: 'Sinkron kewajiban pajak dan BPJS dari IMS.' },
+    { id: 'ims-sync-insentif', icon: '🏆', title: 'Insentif', desc: 'Sinkron bonus, komisi, dan insentif karyawan.' },
+    { id: 'ims-sync-reimburse', icon: '📋', title: 'Reimbursement', desc: 'Sinkron penggantian biaya dari pengajuan IMS.' },
+    { id: 'ims-sync-kasbon', icon: '💳', title: 'Kasbon & Loan', desc: 'Sinkron pencairan kasbon dan pinjaman karyawan.' },
+    { id: 'ims-sync-tunjangan', icon: '🎁', title: 'Tunjangan', desc: 'Sinkron tunjangan, THR, makan, dan transport.' },
+    { id: 'ims-sync-lap-keu', icon: '📊', title: 'Laporan Keuangan', desc: 'Sinkron rekap laporan keuangan dari IMS.' }
+  ];
+  const syncMenuCards = syncMenus.map(function(menu) {
+    return '<button class="card" style="text-align:left;padding:16px;border:1px solid var(--border);cursor:pointer;background:#fff" onclick="navigate(\'' + menu.id + '\')">'
+      + '<div style="display:flex;align-items:flex-start;gap:12px">'
+      + '<div style="font-size:1.5rem;line-height:1">' + menu.icon + '</div>'
+      + '<div><div style="font-weight:700;color:#0f172a">' + menu.title + '</div>'
+      + '<div style="color:#64748b;font-size:0.88rem;line-height:1.5;margin-top:4px">' + menu.desc + '</div></div>'
+      + '</div></button>';
+  }).join('');
 
   return '<div class="page-title">🏢 Keuangan IMS</div>'
     + '<div class="card">'
@@ -17080,7 +17073,7 @@ async function renderIMSFinance() {
     + '    <div class="stat-box"><div class="val">' + ((atkList || []).length) + '</div><div class="lbl">Item Inventori ATK</div></div>'
     + '    <div class="stat-box red"><div class="val">' + pendingIMS + '</div><div class="lbl">Pending Approval IMS</div></div>'
     + '  </div>'
-    + '  <div class="alert alert-info">Menu Keuangan IMS sekarang sudah tersinkron di dalam menu Transaksi agar alur dashboard, transaksi, inventori, dan approval tetap satu jalur.</div>'
+    + '  <div class="alert alert-info">Menu yang disinkronkan dari IMS mencakup semua menu keuangan dan Perjalanan Dinas, jadi tampilannya sekarang dipusatkan di halaman ini dan menu Sinkron IMS.</div>'
     + '  <div style="display:flex; gap:12px; margin-top:16px; flex-wrap:wrap">'
     + '    <button class="btn btn-primary" onclick="navigate(\'ims-sub-keu\')">💰 Buka Transaksi IMS</button>'
     + '    <button class="btn btn-outline" onclick="navigate(\'kalk-inventori-atk\')">📋 Buka Inventori ATK</button>'
@@ -17088,10 +17081,14 @@ async function renderIMSFinance() {
     + '  </div>'
     + '</div>'
     + '<div class="card">'
+    + '  <div class="card-header"><h2>Semua Menu Sinkron IMS</h2></div>'
+    + '  <div class="responsive-grid-2">' + syncMenuCards + '</div>'
+    + '</div>'
+    + '<div class="card">'
     + '  <div class="card-header"><h2>Ringkasan Aktivitas IMS</h2></div>'
     + '  <div class="responsive-grid-2">'
     + '    <div class="alert alert-info" style="margin-bottom:0">📦 Aktivitas inventori tercatat sebanyak ' + ((atkLogList || []).length) + ' log dan tetap memakai modul Inventori Stok ATK yang sama.</div>'
-    + '    <div class="alert alert-info" style="margin-bottom:0">🔗 Semua tombol IMS diarahkan ke form aplikasi utama agar data jurnal, approval, dan inventori tetap sinkron.</div>'
+    + '    <div class="alert alert-info" style="margin-bottom:0">🔗 Semua tombol IMS diarahkan ke halaman sinkron terkait agar data jurnal, approval, semua menu keuangan, dan perjalanan dinas tetap satu alur.</div>'
     + '  </div>'
     + '</div>';
 }
