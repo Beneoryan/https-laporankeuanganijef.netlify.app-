@@ -51,7 +51,7 @@ const MENU = [
       { id: 'kalk-inventori-atk', label: 'Inventori Stok ATK',     icon: '📋', minRole: 'viewer' },
       { id: 'ims-sub-keu',        label: 'Transaksi Keuangan IMS', icon: '💰', minRole: 'viewer' },
       { id: 'ims-sync-perjalanan',label: 'Perjalanan Dinas IMS',   icon: '✈️', minRole: 'viewer' },
-      { id: 'ims-sync-lap-keu',   label: 'Laporan Keuangan IMS',   icon: '📊', minRole: 'viewer' },
+      { id: 'ims-sync-lap-keu',   label: 'Laporan Keuangan IMS',   icon: '📑', minRole: 'viewer' },
     ]},
     { id: 'portal-aset',     label: 'Portal Perlengkapan & Aset', icon: '📦', minRole: 'viewer' },
   ]},
