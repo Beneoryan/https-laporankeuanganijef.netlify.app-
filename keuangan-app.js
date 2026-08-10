@@ -1050,6 +1050,13 @@ function buildContent() {
 let currentSection = '';
 let navHistory = [];
 
+// Re-render current section on orientation change/resize (to fix charts and grids)
+window.addEventListener('resize-charts', function() {
+  if (currentSection && typeof navigate === 'function') {
+    navigate(currentSection);
+  }
+});
+
 function navigate(id) {
   // Simpan history jika id berbeda dengan yang terakhir
   if (navHistory.length === 0 || navHistory[navHistory.length - 1] !== id) {
