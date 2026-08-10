@@ -50,6 +50,8 @@ const MENU = [
       { id: 'ims-finance',        label: 'Dashboard IMS',          icon: '📊', minRole: 'viewer' },
       { id: 'kalk-inventori-atk', label: 'Inventori Stok ATK',     icon: '📋', minRole: 'viewer' },
       { id: 'ims-sub-keu',        label: 'Transaksi Keuangan IMS', icon: '💰', minRole: 'viewer' },
+      { id: 'ims-sync-perjalanan',label: 'Perjalanan Dinas IMS',   icon: '✈️', minRole: 'viewer' },
+      { id: 'ims-sync-lap-keu',   label: 'Laporan Keuangan IMS',   icon: '📊', minRole: 'viewer' },
     ]},
     { id: 'portal-aset',     label: 'Portal Perlengkapan & Aset', icon: '📦', minRole: 'viewer' },
   ]},
@@ -119,7 +121,7 @@ const MENU = [
 // ===== HELPERS =====
 function isIMSMenuItem(item) {
   if (!item) return false;
-  return ['ims-menu-keu', 'ims-finance', 'ims-sub-keu', 'kalk-inventori-atk'].includes(item.id);
+  return ['ims-menu-keu', 'ims-finance', 'ims-sub-keu', 'kalk-inventori-atk', 'ims-sync-perjalanan', 'ims-sync-lap-keu'].includes(item.id);
 }
 
 function showLoading(v) {
