@@ -931,7 +931,7 @@ function buildSidebar() {
 
   function canShowItem(item, groupName) {
     if (!hasRole(item.minRole)) return false;
-    if (isNanda && groupName === 'Transaksi' && item.id !== 'portal-aset') return false;
+    if (isNanda && groupName === 'Transaksi') return item.id === 'portal-aset';
     if (isBOD && groupName === 'Transaksi') return item.id === 'dana-approval' || isIMSMenuItem(item);
     if (isLimited && groupName === 'Transaksi') return item.id === 'dana-approval' || isIMSMenuItem(item);
     if (isBOD && groupName === 'Laporan') return ['lap-dashboard', 'lap-labarugi', 'lap-neraca', 'lap-aruskas', 'lap-print-bundle'].includes(item.id);
@@ -1187,7 +1187,7 @@ async function renderSection(id) {
       case 'dana-approval':       el.innerHTML = await renderApprovalCenter(); break;
       case 'portal-aset':         el.innerHTML = await renderPortalAset(); break;
       case 'ims-finance':         el.innerHTML = await renderIMSFinance(); break;
-      case 'ims-menu-keu':       el.innerHTML = await renderIMSMenuKeuangan(); break;
+      case 'ims-menu-keu':       el.innerHTML = await renderIMSFinance(); break;
       case 'ims-sub-keu':        el.innerHTML = await renderIMSSubKeuangan(); break;
       default: el.innerHTML = '<div class="empty-state"><span class="icon">🚧</span>Halaman dalam pengembangan</div>';
     }
@@ -17040,10 +17040,6 @@ async function renderIMSFinance() {
     + '    <div class="alert alert-info" style="margin-bottom:0">🔗 Semua tombol IMS diarahkan ke form aplikasi utama agar data jurnal, approval, dan inventori tetap sinkron.</div>'
     + '  </div>'
     + '</div>';
-}
-
-async function renderIMSMenuKeuangan() {
-  return renderIMSFinance();
 }
 
 async function renderIMSSubKeuangan() {
