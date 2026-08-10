@@ -88,6 +88,15 @@ const MENU = [
     { id: 'kalk-hpp',           label: 'Hitung HPP',             icon: '🏭', minRole: 'admin' },
   ]},
   { group: 'Sinkron HR-Legal', icon: '🔗', items: [
+    { id: 'ims-live-dashboard',    label: '🟢 Live Dashboard IMS', icon: '📡', minRole: 'viewer' },
+    { id: 'ims-live-karyawan',     label: 'Data Karyawan Live',  icon: '👤',  minRole: 'viewer' },
+    { id: 'ims-live-penggajian',   label: 'Penggajian Live',     icon: '💰',  minRole: 'viewer' },
+    { id: 'ims-live-perjalanan',   label: 'Perjalanan Dinas Live', icon: '✈️', minRole: 'viewer' },
+    { id: 'ims-live-insentif',     label: 'Insentif Live',       icon: '🏆',  minRole: 'viewer' },
+    { id: 'ims-live-reimburse',    label: 'Reimbursement Live',  icon: '📋',  minRole: 'viewer' },
+    { id: 'ims-live-kasbon',       label: 'Kasbon & Loan Live',  icon: '💳',  minRole: 'viewer' },
+    { id: 'ims-live-tunjangan',    label: 'Tunjangan Live',      icon: '🎁',  minRole: 'viewer' },
+    { id: 'ims-live-overtime',     label: 'Overtime Live',       icon: '⏱️',  minRole: 'viewer' },
     { id: 'ims-sync-perjalanan',   label: 'Perjalanan Dinas',   icon: '✈️',  minRole: 'viewer' },
     { id: 'ims-sync-penggajian',   label: 'Penggajian',         icon: '💰',  minRole: 'viewer' },
     { id: 'ims-sync-tax-bpjs',     label: 'Tax & BPJS',         icon: '🧮',  minRole: 'viewer' },
@@ -1264,6 +1273,15 @@ async function renderSection(id) {
       case 'ims-finance':         el.innerHTML = await renderIMSFinance(); break;
       case 'ims-menu-keu':       el.innerHTML = await renderIMSFinance(); break;
       case 'ims-sub-keu':        el.innerHTML = await renderIMSSubKeuangan(); break;
+      case 'ims-live-dashboard':  el.innerHTML = await renderIMSLiveDashboard(); break;
+      case 'ims-live-karyawan':   el.innerHTML = await renderIMSLivePage('hrd_karyawan', '👤', 'Data Karyawan'); break;
+      case 'ims-live-penggajian': el.innerHTML = await renderIMSLivePage('hrd_penggajian', '💰', 'Penggajian'); break;
+      case 'ims-live-perjalanan': el.innerHTML = await renderIMSLivePage('hrd_perjalanan_dinas', '✈️', 'Perjalanan Dinas'); break;
+      case 'ims-live-insentif':   el.innerHTML = await renderIMSLivePage('hrd_insentif', '🏆', 'Insentif'); break;
+      case 'ims-live-reimburse':  el.innerHTML = await renderIMSLivePage('hrd_reimbursement', '📋', 'Reimbursement'); break;
+      case 'ims-live-kasbon':     el.innerHTML = await renderIMSLivePage('hrd_kasbon', '💳', 'Kasbon & Loan'); break;
+      case 'ims-live-tunjangan':  el.innerHTML = await renderIMSLivePage('hrd_tunjangan', '🎁', 'Tunjangan'); break;
+      case 'ims-live-overtime':   el.innerHTML = await renderIMSLivePage('hrd_overtime', '⏱️', 'Overtime'); break;
       case 'ims-sync-perjalanan': el.innerHTML = await renderIMSSyncPage('perjalanan', '✈️', 'Perjalanan Dinas'); break;
       case 'ims-sync-penggajian': el.innerHTML = await renderIMSSyncPage('penggajian', '💰', 'Penggajian'); break;
       case 'ims-sync-tax-bpjs':   el.innerHTML = await renderIMSSyncPage('tax-bpjs', '🧮', 'Tax & BPJS'); break;
@@ -17433,3 +17451,307 @@ async function renderIMSSyncPage(categoryKey, icon, title) {
     + '</div>'
     + '</div>';
 }
+
+// ===== IMS LIVE DATA =====
+
+/**
+ * Config field mapping per IMS collection for display.
+ * Each entry defines which fields to show as columns in the live table.
+ */
+var IMS_LIVE_COL_MAP = {
+  'hrd_karyawan': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_lengkap', 'name'] },
+      { label: 'Jabatan', keys: ['jabatan', 'posisi', 'position'] },
+      { label: 'Departemen', keys: ['departemen', 'department', 'divisi'] },
+      { label: 'Status', keys: ['status', 'status_kerja'] },
+      { label: 'No HP', keys: ['no_hp', 'phone', 'telepon', 'hp'] },
+    ],
+    amountKeys: [],
+    dateKeys: ['tanggal_masuk', 'join_date', 'tgl_masuk'],
+    statusKeys: ['status', 'status_kerja'],
+  },
+  'hrd_penggajian': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_karyawan', 'employee'] },
+      { label: 'Periode', keys: ['periode', 'bulan', 'month'] },
+      { label: 'Gaji Pokok', keys: ['gaji_pokok', 'basic_salary', 'gaji'] },
+      { label: 'Total', keys: ['total_gaji', 'total', 'net_gaji', 'nett'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['gaji_pokok', 'total_gaji', 'total', 'net_gaji', 'nett', 'gaji'],
+    dateKeys: ['tanggal', 'tgl_bayar', 'periode', 'created_at'],
+    statusKeys: ['status'],
+  },
+  'hrd_perjalanan_dinas': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_karyawan', 'karyawan'] },
+      { label: 'Tujuan', keys: ['tujuan', 'destination', 'keperluan'] },
+      { label: 'Tanggal', keys: ['tanggal', 'tgl_berangkat', 'tgl_mulai'] },
+      { label: 'Biaya', keys: ['biaya', 'total_biaya', 'nominal', 'anggaran'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['biaya', 'total_biaya', 'nominal', 'anggaran', 'total'],
+    dateKeys: ['tanggal', 'tgl_berangkat', 'tgl_mulai'],
+    statusKeys: ['status'],
+  },
+  'hrd_insentif': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_karyawan'] },
+      { label: 'Jenis', keys: ['jenis', 'type', 'kategori'] },
+      { label: 'Periode', keys: ['periode', 'bulan'] },
+      { label: 'Jumlah', keys: ['jumlah', 'nominal', 'total', 'amount'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['jumlah', 'nominal', 'total', 'amount'],
+    dateKeys: ['tanggal', 'periode'],
+    statusKeys: ['status'],
+  },
+  'hrd_reimbursement': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_karyawan', 'karyawan'] },
+      { label: 'Keperluan', keys: ['keperluan', 'keterangan', 'deskripsi'] },
+      { label: 'Tanggal', keys: ['tanggal', 'tgl_pengajuan'] },
+      { label: 'Jumlah', keys: ['jumlah', 'nominal', 'total', 'amount'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['jumlah', 'nominal', 'total', 'amount'],
+    dateKeys: ['tanggal', 'tgl_pengajuan'],
+    statusKeys: ['status'],
+  },
+  'hrd_kasbon': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_karyawan'] },
+      { label: 'Keperluan', keys: ['keperluan', 'keterangan', 'alasan'] },
+      { label: 'Tanggal', keys: ['tanggal', 'tgl_pengajuan'] },
+      { label: 'Jumlah', keys: ['jumlah', 'nominal', 'total', 'amount'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['jumlah', 'nominal', 'total', 'amount'],
+    dateKeys: ['tanggal', 'tgl_pengajuan'],
+    statusKeys: ['status'],
+  },
+  'hrd_tunjangan': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_karyawan'] },
+      { label: 'Jenis', keys: ['jenis', 'type', 'kategori'] },
+      { label: 'Periode', keys: ['periode', 'bulan'] },
+      { label: 'Jumlah', keys: ['jumlah', 'nominal', 'total', 'amount'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['jumlah', 'nominal', 'total', 'amount'],
+    dateKeys: ['tanggal', 'periode'],
+    statusKeys: ['status'],
+  },
+  'hrd_overtime': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_karyawan'] },
+      { label: 'Tanggal', keys: ['tanggal', 'tgl_lembur'] },
+      { label: 'Durasi (jam)', keys: ['durasi', 'jam', 'hours', 'lama'] },
+      { label: 'Total', keys: ['total', 'total_bayar', 'nominal', 'amount'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['total', 'total_bayar', 'nominal', 'amount'],
+    dateKeys: ['tanggal', 'tgl_lembur'],
+    statusKeys: ['status'],
+  },
+};
+
+function _imsVal(item, keys) {
+  for (var i = 0; i < keys.length; i++) {
+    if (item[keys[i]] !== undefined && item[keys[i]] !== null && item[keys[i]] !== '') {
+      return item[keys[i]];
+    }
+  }
+  return '-';
+}
+
+function _imsStatusBadge(val) {
+  if (!val || val === '-') return '<span style="color:#94a3b8">—</span>';
+  var v = String(val).toLowerCase();
+  var color = '#64748b', bg = '#f1f5f9';
+  if (v.includes('approv') || v.includes('aktif') || v.includes('lunas') || v.includes('selesai') || v.includes('done') || v === 'approved') {
+    color = '#065f46'; bg = '#ecfdf5';
+  } else if (v.includes('reject') || v.includes('batal') || v.includes('denied')) {
+    color = '#7f1d1d'; bg = '#fef2f2';
+  } else if (v.includes('pending') || v.includes('proses') || v.includes('review') || v.includes('menunggu')) {
+    color = '#92400e'; bg = '#fffbeb';
+  }
+  return '<span style="background:' + bg + ';color:' + color + ';border-radius:10px;padding:2px 9px;font-size:0.73rem;font-weight:600">' + val + '</span>';
+}
+
+/**
+ * Render a LIVE data page reading directly from the IMS Firestore collection.
+ */
+async function renderIMSLivePage(colName, icon, title) {
+  var cfg = IMS_LIVE_COL_MAP[colName] || {
+    cols: [
+      { label: 'ID', keys: ['id'] },
+      { label: 'Nama', keys: ['nama', 'name', 'nama_karyawan'] },
+      { label: 'Tanggal', keys: ['tanggal', 'created_at', 'date'] },
+      { label: 'Jumlah', keys: ['jumlah', 'nominal', 'total', 'amount'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['jumlah', 'nominal', 'total', 'amount'],
+    dateKeys: ['tanggal', 'created_at'],
+    statusKeys: ['status'],
+  };
+
+  var items = [];
+  var loadError = null;
+  try {
+    items = await KDB.getAllIMS(colName);
+  } catch(e) {
+    loadError = e.message;
+  }
+
+  var now = new Date();
+  var lastUpdate = now.toLocaleString('id-ID');
+
+  // Sort by date desc
+  var dateKey = cfg.dateKeys[0];
+  items = items.slice().sort(function(a, b) {
+    return String(b[dateKey] || b.tanggal || '').localeCompare(String(a[dateKey] || a.tanggal || ''));
+  });
+
+  // Compute totals
+  var totalAmount = 0;
+  if (cfg.amountKeys.length > 0) {
+    items.forEach(function(item) {
+      var v = parseFloat(_imsVal(item, cfg.amountKeys));
+      if (!isNaN(v)) totalAmount += v;
+    });
+  }
+
+  // Count by status
+  var statusCounts = {};
+  if (cfg.statusKeys.length > 0) {
+    items.forEach(function(item) {
+      var s = String(_imsVal(item, cfg.statusKeys));
+      statusCounts[s] = (statusCounts[s] || 0) + 1;
+    });
+  }
+
+  // Build table header
+  var thead = cfg.cols.map(function(c) { return '<th>' + c.label + '</th>'; }).join('');
+
+  // Build table rows
+  var tbody = items.map(function(item) {
+    return '<tr>' + cfg.cols.map(function(c, i) {
+      var val = _imsVal(item, c.keys);
+      // Format currency columns
+      if (cfg.amountKeys.some(function(k) { return c.keys.includes(k); })) {
+        var n = parseFloat(val);
+        if (!isNaN(n) && n > 0) return '<td class="text-right">' + fmtRp(n) + '</td>';
+      }
+      // Format status columns
+      if (cfg.statusKeys.some(function(k) { return c.keys.includes(k); })) {
+        return '<td>' + _imsStatusBadge(val) + '</td>';
+      }
+      return '<td>' + (val === '-' ? '<span style="color:#94a3b8">—</span>' : val) + '</td>';
+    }).join('') + '</tr>';
+  }).join('');
+
+  // Status summary badges
+  var statusSummary = Object.keys(statusCounts).map(function(s) {
+    return '<span style="margin-right:8px">' + _imsStatusBadge(s) + ' <b>' + statusCounts[s] + '</b></span>';
+  }).join('');
+
+  return '<div class="page-title">' + icon + ' ' + title + ' <span style="font-size:0.65rem;background:#22c55e;color:#fff;border-radius:20px;padding:2px 10px;vertical-align:middle;font-weight:700;letter-spacing:0.5px">● LIVE</span></div>'
+
+    + '<div class="alert" style="background:#f0fdf4;border:1.5px solid #86efac;color:#166534;padding:10px 16px;border-radius:8px;margin-bottom:12px;font-size:0.85rem">'
+    + '📡 Data ini dibaca <b>langsung (real-time)</b> dari Firestore IMS (HR Legal App) — selalu terbaru. Terakhir dimuat: <b>' + lastUpdate + '</b>'
+    + (loadError ? ' &nbsp;⚠️ Error: ' + loadError : '')
+    + '</div>'
+
+    + '<div class="stats-row">'
+    + '<div class="stat-box"><div class="val">' + items.length + '</div><div class="lbl">Total Data</div></div>'
+    + (cfg.amountKeys.length > 0 ? '<div class="stat-box green"><div class="val" style="font-size:1rem">' + fmtRp(totalAmount) + '</div><div class="lbl">Total Nominal</div></div>' : '')
+    + '</div>'
+
+    + (statusSummary ? '<div style="margin-bottom:12px;padding:8px 12px;background:#f8fafc;border-radius:8px">Status: ' + statusSummary + '</div>' : '')
+
+    + '<div class="card">'
+    + '<div class="card-header"><h2>' + icon + ' Data ' + title + ' Live dari IMS</h2>'
+    + '<button class="btn btn-sm btn-outline" onclick="navigate(\'ims-live-' + colName.replace('hrd_','').replace('reimbursement','reimburse').replace('perjalanan_dinas','perjalanan') + '\')">🔄 Refresh</button>'
+    + '</div>'
+    + (items.length > 0
+        ? '<div class="table-wrap"><table><thead><tr>' + thead + '</tr></thead><tbody>' + tbody + '</tbody></table></div>'
+        : '<div class="empty-state"><span class="icon">' + icon + '</span><div>Belum ada data ' + title + ' di IMS</div></div>')
+    + '</div>'
+
+    + '<div class="card">'
+    + '<div class="card-header"><h2>🔗 Aksi</h2></div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    + '<a href="https://hr-legal-app.netlify.app" target="_blank" rel="noopener" class="btn btn-outline">🔗 Buka IMS (HR Legal App)</a>'
+    + '<button class="btn btn-outline" onclick="navigate(\'ims-live-dashboard\')">📡 Live Dashboard IMS</button>'
+    + '</div>'
+    + '</div>';
+}
+
+/**
+ * Render Live Dashboard — ringkasan semua data IMS secara real-time.
+ */
+async function renderIMSLiveDashboard() {
+  var sections = [
+    { col: 'hrd_karyawan',        icon: '👤', label: 'Karyawan',        route: 'ims-live-karyawan',   amountKeys: [] },
+    { col: 'hrd_penggajian',      icon: '💰', label: 'Penggajian',      route: 'ims-live-penggajian', amountKeys: ['gaji_pokok','total_gaji','total','net_gaji','nett','gaji'] },
+    { col: 'hrd_perjalanan_dinas',icon: '✈️', label: 'Perjalanan Dinas',route: 'ims-live-perjalanan', amountKeys: ['biaya','total_biaya','nominal','anggaran','total'] },
+    { col: 'hrd_insentif',        icon: '🏆', label: 'Insentif',        route: 'ims-live-insentif',   amountKeys: ['jumlah','nominal','total','amount'] },
+    { col: 'hrd_reimbursement',   icon: '📋', label: 'Reimbursement',   route: 'ims-live-reimburse',  amountKeys: ['jumlah','nominal','total','amount'] },
+    { col: 'hrd_kasbon',          icon: '💳', label: 'Kasbon & Loan',   route: 'ims-live-kasbon',     amountKeys: ['jumlah','nominal','total','amount'] },
+    { col: 'hrd_tunjangan',       icon: '🎁', label: 'Tunjangan',       route: 'ims-live-tunjangan',  amountKeys: ['jumlah','nominal','total','amount'] },
+    { col: 'hrd_overtime',        icon: '⏱️', label: 'Overtime',        route: 'ims-live-overtime',   amountKeys: ['total','total_bayar','nominal','amount'] },
+  ];
+
+  var results = await Promise.all(sections.map(function(s) {
+    return KDB.getAllIMS(s.col).then(function(items) {
+      var total = 0;
+      if (s.amountKeys.length > 0) {
+        items.forEach(function(item) {
+          var v = parseFloat(_imsVal(item, s.amountKeys));
+          if (!isNaN(v)) total += v;
+        });
+      }
+      // Count pending
+      var pending = items.filter(function(x) {
+        var st = String(x.status || '').toLowerCase();
+        return st.includes('pending') || st.includes('proses') || st.includes('menunggu') || st.includes('review');
+      }).length;
+      return { count: items.length, total: total, pending: pending };
+    }).catch(function() { return { count: 0, total: 0, pending: 0 }; });
+  }));
+
+  var now = new Date().toLocaleString('id-ID');
+
+  var cards = sections.map(function(s, i) {
+    var r = results[i];
+    var hasMoney = s.amountKeys.length > 0;
+    return '<div class="card" style="cursor:pointer;transition:box-shadow 0.15s" onclick="navigate(\'' + s.route + '\')">'
+      + '<div class="card-header" style="border-bottom:none;padding-bottom:4px"><h2 style="font-size:1rem">' + s.icon + ' ' + s.label + '</h2>'
+      + '<span style="font-size:0.72rem;background:#22c55e;color:#fff;border-radius:10px;padding:1px 8px;font-weight:700">● LIVE</span>'
+      + '</div>'
+      + '<div style="display:flex;gap:12px;align-items:flex-end;padding:0 16px 14px">'
+      + '<div><div style="font-size:1.9rem;font-weight:800;color:#1e293b">' + r.count + '</div><div style="font-size:0.72rem;color:#64748b">Total Record</div></div>'
+      + (hasMoney && r.total > 0 ? '<div><div style="font-size:1rem;font-weight:700;color:#0f766e">' + fmtRp(r.total) + '</div><div style="font-size:0.72rem;color:#64748b">Total Nominal</div></div>' : '')
+      + (r.pending > 0 ? '<div style="margin-left:auto"><span style="background:#fffbeb;color:#92400e;border-radius:10px;padding:3px 10px;font-size:0.78rem;font-weight:700">⏳ ' + r.pending + ' Pending</span></div>' : '')
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  return '<div class="page-title">📡 Live Dashboard IMS <span style="font-size:0.65rem;background:#22c55e;color:#fff;border-radius:20px;padding:2px 10px;vertical-align:middle;font-weight:700;letter-spacing:0.5px">● LIVE</span></div>'
+
+    + '<div class="alert" style="background:#f0fdf4;border:1.5px solid #86efac;color:#166534;padding:10px 16px;border-radius:8px;margin-bottom:16px;font-size:0.85rem">'
+    + '📡 Semua data dibaca <b>langsung real-time</b> dari Firestore IMS (HR Legal App — Firebase project yang sama). Terakhir dimuat: <b>' + now + '</b>'
+    + '</div>'
+
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:16px">'
+    + cards
+    + '</div>'
+
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
+    + '<a href="https://hr-legal-app.netlify.app" target="_blank" rel="noopener" class="btn btn-outline">🔗 Buka Aplikasi IMS</a>'
+    + '<button class="btn btn-outline" onclick="navigate(\'ims-live-dashboard\')">🔄 Refresh Dashboard</button>'
+    + '</div>';
+}
+
