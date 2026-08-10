@@ -17075,8 +17075,9 @@ async function renderIMSSubKeuangan() {
 
 function isIMSRecord(item) {
   if (!item) return false;
+  const imsPattern = /(^|[^a-z0-9])ims([^a-z0-9]|$)/i;
   return ['keterangan', 'ket', 'nama', 'ref', 'noRef', 'judul', 'tujuan'].some(function(key) {
-    return String(item[key] || '').toLowerCase().includes('ims');
+    return imsPattern.test(String(item[key] || ''));
   });
 }
 
