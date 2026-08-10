@@ -947,7 +947,6 @@ function buildSidebar() {
     if (isBOD && groupName === 'Laporan') return ['lap-dashboard', 'lap-labarugi', 'lap-neraca', 'lap-aruskas', 'lap-print-bundle'].includes(item.id);
     if (isLimited && groupName === 'Laporan') return ['lap-dashboard', 'lap-print-bundle'].includes(item.id);
     if ((isBOD || isLimited) && groupName === 'Monitor') return item.id.startsWith('monitor-');
-    if (groupName === 'Sinkron IMS') return hasRole(item.minRole);
     if (isNanda) return groupName === 'Bantuan' || groupName === 'Sinkron IMS';
     if (isBOD || isLimited) return groupName === 'Bantuan' || groupName === 'Sinkron IMS';
     return true;
@@ -17249,13 +17248,16 @@ async function renderIMSSyncPage(categoryKey, icon, title) {
 
   var safeKey = categoryKey.replace(/[^a-z0-9\-]/g,'');
   var fnName = 'imsSyncPermohonan_' + safeKey.replace(/-/g,'_');
-  window[fnName] = function() {
-    navigate('dana-permohonan');
-    setTimeout(function() {
-      var ketEl = document.getElementById('pd-ket');
-      if (ketEl) { ketEl.value = defaultKet; ketEl.focus(); }
-    }, 500);
-  };
+  if (!window[fnName]) {
+    window[fnName] = function() {
+      var ket = IMS_SYNC_CONFIG[categoryKey] ? IMS_SYNC_CONFIG[categoryKey].defaultKet : (title + ' - [Keterangan]');
+      navigate('dana-permohonan');
+      setTimeout(function() {
+        var ketEl = document.getElementById('pd-ket');
+        if (ketEl) { ketEl.value = ket; ketEl.focus(); }
+      }, 500);
+    };
+  }
 
   return '<div class="page-title">' + icon + ' ' + title + ' — Sinkron IMS</div>'
 
