@@ -1119,6 +1119,35 @@ function buildContent() {
 
 let currentSection = '';
 let navHistory = [];
+const PROTECTED_SECTION_FIELDS = {
+  'dana-permohonan': ['pd-pemohon', 'pd-pic', 'pd-leader', 'pd-nopo', 'pd-nominal', 'pd-jt', 'pd-tipe', 'pd-bank', 'pd-norek', 'pd-namarek', 'pd-ket', 'pd-akun-debit', 'pd-akun-kredit', 'pd-bukti'],
+  'dana-masuk': ['dm-sumber', 'dm-pic', 'dm-ref', 'dm-tgl', 'dm-nominal', 'dm-tipe', 'dm-akun-terima', 'dm-akun-kredit', 'dm-namarek', 'dm-ket', 'dm-bukti']
+};
+
+function getProtectedSectionFormState(sectionId) {
+  var ids = PROTECTED_SECTION_FIELDS[sectionId];
+  if (!ids || !ids.length) return '';
+  return ids.map(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return id + '=';
+    var val = (typeof el.value === 'string' ? el.value : '');
+    return id + '=' + val.trim();
+  }).join('&');
+}
+
+function snapshotProtectedSectionState(sectionId) {
+  if (!PROTECTED_SECTION_FIELDS[sectionId]) return;
+  window._kProtectedSectionState = window._kProtectedSectionState || {};
+  window._kProtectedSectionState[sectionId] = getProtectedSectionFormState(sectionId);
+}
+
+function hasProtectedUnsavedSectionState(sectionId) {
+  if (!PROTECTED_SECTION_FIELDS[sectionId]) return false;
+  var stateMap = window._kProtectedSectionState || {};
+  var initialState = stateMap[sectionId];
+  if (typeof initialState !== 'string') return false;
+  return getProtectedSectionFormState(sectionId) !== initialState;
+}
 
 // Re-render current section on orientation change/resize (to fix charts and grids)
 window.addEventListener('resize-charts', function() {
@@ -1266,8 +1295,8 @@ async function renderSection(id) {
       case 'admin-users':         el.innerHTML = await renderAdminUsers(); break;
       case 'admin-import':        el.innerHTML = renderImport(); loadSavedApiKey(); break;
       case 'admin-export':        el.innerHTML = await renderExport(); break;
-      case 'dana-permohonan':     el.innerHTML = await renderPermohonanDana(); break;
-      case 'dana-masuk':          el.innerHTML = await renderDanaMasuk(); break;
+      case 'dana-permohonan':     el.innerHTML = await renderPermohonanDana(); snapshotProtectedSectionState('dana-permohonan'); window._kDataUpdated = false; break;
+      case 'dana-masuk':          el.innerHTML = await renderDanaMasuk(); snapshotProtectedSectionState('dana-masuk'); window._kDataUpdated = false; break;
       case 'dana-approval':       el.innerHTML = await renderApprovalCenter(); break;
       case 'portal-aset':         el.innerHTML = await renderPortalAset(); break;
       case 'ims-finance':         el.innerHTML = await renderIMSFinance(); break;
@@ -17754,4 +17783,3 @@ async function renderIMSLiveDashboard() {
     + '<button class="btn btn-outline" onclick="navigate(\'ims-live-dashboard\')">🔄 Refresh Dashboard</button>'
     + '</div>';
 }
-
