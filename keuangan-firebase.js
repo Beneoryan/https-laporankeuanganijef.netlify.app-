@@ -427,12 +427,13 @@ function startRealtimeSync() {
       // Auto-navigating would clear the user's current typed message.
       if (currentSection === 'portal-komunikasi') return;
 
-      // Don't auto-refresh if user is currently typing in any input or textarea
+      // Don't auto-refresh if user is currently filling a protected form
       var activeEl = document.activeElement;
-      var isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+      var isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');
+      var hasUnsavedProtectedForm = typeof hasProtectedUnsavedSectionState === 'function' && hasProtectedUnsavedSectionState(currentSection);
 
       var modalOverlay = document.getElementById('modal-overlay');
-      if (isTyping || (modalOverlay && modalOverlay.classList.contains('open'))) {
+      if (isTyping || hasUnsavedProtectedForm || (modalOverlay && modalOverlay.classList.contains('open'))) {
         // Just flag it as updated so it can be refreshed later (e.g. after closing modal)
         window._kDataUpdated = true;
       } else {
