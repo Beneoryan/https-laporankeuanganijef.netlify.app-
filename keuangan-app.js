@@ -512,6 +512,7 @@ function openModal(html, title) {
   resetModalLayout();
   document.getElementById('modal-content').innerHTML = '<h3>' + title + '</h3>' + html;
   document.getElementById('modal-overlay').classList.add('open');
+  document.body.classList.add('modal-open');
 }
 
 function resetModalLayout() {
@@ -544,6 +545,7 @@ function closeModal(e) {
   if (!e || e.target === document.getElementById('modal-overlay')) {
     resetModalLayout();
     document.getElementById('modal-overlay').classList.remove('open');
+    document.body.classList.remove('modal-open');
     // If data was updated while modal was open, refresh the current view
     if (window._kDataUpdated) {
       window._kDataUpdated = false;
@@ -557,6 +559,7 @@ function closeModal(e) {
 function closeModalDirect() {
   resetModalLayout();
   document.getElementById('modal-overlay').classList.remove('open');
+  document.body.classList.remove('modal-open');
   // If data was updated while modal was open, refresh the current view
   if (window._kDataUpdated) {
     window._kDataUpdated = false;
@@ -1021,12 +1024,16 @@ function buildSidebar() {
 
   function canShowItem(item, groupName) {
     if (!hasRole(item.minRole)) return false;
+    // Superadmin bypass: See everything
+    if (KU.role === 'superadmin') return true;
+
     if (isNanda && groupName === 'Transaksi') return item.id === 'portal-aset';
     if (isBOD && groupName === 'Transaksi') return item.id === 'dana-approval';
     if (isLimited && groupName === 'Transaksi') return item.id === 'dana-approval' || isIMSMenuItem(item);
     if (isBOD && groupName === 'Laporan') return ['lap-dashboard', 'lap-labarugi', 'lap-neraca', 'lap-aruskas', 'lap-print-bundle'].includes(item.id);
     if (isLimited && groupName === 'Laporan') return ['lap-dashboard', 'lap-print-bundle'].includes(item.id);
     if ((isBOD || isLimited) && groupName === 'Monitor') return item.id.startsWith('monitor-');
+    if (isBOD && groupName === 'Sinkron HR-Legal') return item.id === 'ims-live-karyawan';
     if (isNanda) return groupName === 'Bantuan' || groupName === 'Sinkron HR-Legal';
     if (isBOD || isLimited) return groupName === 'Bantuan' || groupName === 'Sinkron HR-Legal';
     return true;
@@ -10057,8 +10064,14 @@ async function renderApprovalCenter() {
   const pendingStatus = 'Pending Layer ' + myLayer;
 
   // Filter Data
-  const forMePD = allPD.filter(x => x.status === pendingStatus);
-  const forMeDM = allDM.filter(x => x.status === pendingStatus);
+  let forMePD = allPD.filter(x => x.status === pendingStatus);
+  let forMeDM = allDM.filter(x => x.status === pendingStatus);
+
+  // Superadmin Power: Bisa akses semua pending
+  if (KU.role === 'superadmin') {
+    forMePD = allPD.filter(x => (x.status || '').startsWith('Pending'));
+    forMeDM = allDM.filter(x => (x.status || '').startsWith('Pending'));
+  }
 
   // Count stats for KPI
   const myPendingCount = forMePD.length + forMeDM.length;
@@ -10295,7 +10308,16 @@ async function approveItem(col, id) {
       const hasNext = approvers.find(a => a.layer === nextLayer);
 
       const oldStatus = item.status;
-      item.status = hasNext ? 'Pending Layer ' + nextLayer : STATUS.APPROVED;
+      let newStatus = hasNext ? 'Pending Layer ' + nextLayer : STATUS.APPROVED;
+
+      // Superadmin Power: Bisa langsung Approve Final
+      if (KU.role === 'superadmin' && hasNext) {
+          if (confirm('Anda adalah Superadmin. Apakah ingin langsung APPROVE FINAL (Selesai) untuk item ini?\n\nKlik OK untuk Final, Klik Cancel untuk lanjut ke Layer ' + nextLayer)) {
+              newStatus = STATUS.APPROVED;
+          }
+      }
+
+      item.status = newStatus;
 
       if (!item.approvalLog) item.approvalLog = [];
       item.approvalLog.push({
@@ -10367,7 +10389,14 @@ async function approveSemuaItem(col) {
 
   if (checkboxes.length === 0) return alert('Pilih minimal satu item dari tabel!');
 
-  if (!confirm('Setujui ' + checkboxes.length + ' item terpilih?')) return;
+  let forceFinal = false;
+  if (KU.role === 'superadmin') {
+      if (confirm('Anda adalah Superadmin. Apakah ingin langsung APPROVE FINAL (Selesai) untuk SEMUA item terpilih?\n\nKlik OK untuk Final Semua, Klik Cancel untuk lanjut sesuai flow layer.')) {
+          forceFinal = true;
+      }
+  } else {
+      if (!confirm('Setujui ' + checkboxes.length + ' item terpilih?')) return;
+  }
 
   showLoading(true);
   let successCount = 0;
@@ -10385,7 +10414,8 @@ async function approveSemuaItem(col) {
                   const nextLayer = currentLayer + 1;
                   const hasNext = approvers.find(a => a.layer === nextLayer);
 
-                  item.status = hasNext ? 'Pending Layer ' + nextLayer : STATUS.APPROVED;
+                  // Apply force final if superadmin chose it
+                  item.status = (forceFinal || !hasNext) ? STATUS.APPROVED : 'Pending Layer ' + nextLayer;
                   if (!item.approvalLog) item.approvalLog = [];
                   item.approvalLog.push({
                       date: new Date().toISOString(),
@@ -17416,9 +17446,10 @@ async function renderIMSFinance() {
     + '    <button class="btn btn-outline" onclick="navigate(\'dana-approval\')">✅ Approval Center</button>'
     + '  </div>'
     + '</div>'
-    + '<div class="card">'
+    + (KU.role !== 'bod' ? '<div class="card">'
     + '  <div class="card-header"><h2>Semua Menu Sinkron HR-Legal</h2></div>'
-    + '  <div class="responsive-grid-2">' + syncMenuCards + '</div>'
+    + '  <div class="responsive-grid-2">' + syncMenuCards + '</div></div>' : '');
+}
     + '</div>'
     + '<div class="card">'
     + '  <div class="card-header"><h2>Ringkasan Aktivitas IMS</h2></div>'
@@ -17593,6 +17624,7 @@ var IMS_SYNC_CONFIG = {
 };
 
 async function renderIMSSyncPage(categoryKey, icon, title) {
+  if (KU.role === 'bod') return '<div class="alert alert-danger">Akses ditolak.</div>';
   var cfg = IMS_SYNC_CONFIG[categoryKey] || {};
   var keywords = cfg.keywords || [categoryKey];
   var defaultKet = cfg.defaultKet || (title + ' - [Keterangan]');
@@ -17830,6 +17862,9 @@ function _imsStatusBadge(val) {
  * Render a LIVE data page reading directly from the IMS Firestore collection.
  */
 async function renderIMSLivePage(colName, icon, title) {
+  if (KU.role === 'bod' && colName !== 'hrd_karyawan') {
+      return '<div class="alert alert-danger">Akses ditolak.</div>';
+  }
   var cfg = IMS_LIVE_COL_MAP[colName] || {
     cols: [
       { label: 'ID', keys: ['id'] },
@@ -17939,6 +17974,7 @@ async function renderIMSLivePage(colName, icon, title) {
  * Render Live Dashboard — ringkasan semua data IMS secara real-time.
  */
 async function renderIMSLiveDashboard() {
+  if (KU.role === 'bod') return '<div class="alert alert-danger">Akses ditolak.</div>';
   var sections = [
     { col: 'hrd_karyawan',        icon: '👤', label: 'Karyawan',        route: 'ims-live-karyawan',   amountKeys: [] },
     { col: 'hrd_penggajian',      icon: '💰', label: 'Penggajian',      route: 'ims-live-penggajian', amountKeys: ['gaji_pokok','total_gaji','total','net_gaji','nett','gaji'] },
