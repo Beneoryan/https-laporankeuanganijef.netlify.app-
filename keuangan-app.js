@@ -1773,13 +1773,13 @@ async function renderDashboard() {
     const cls = net > 0 ? 'text-green' : net < 0 ? 'text-red' : 'text-blue';
 
     var selisihInfo = '';
-    if (actual > 0) {
-      var sCls = Math.abs(selisih) < 1 ? 'text-green' : 'text-red';
-      selisihInfo = '<div style="font-size:0.7rem;margin-top:4px;border-top:1px dashed #ddd;padding-top:4px">'
-        + '<span style="color:#64748b">Aktual:</span> <b style="color:#334155">' + fmtRp(actual) + '</b><br>'
-        + '<span style="color:#64748b">Selisih:</span> <b class="' + sCls + '">' + fmtRp(selisih) + '</b>'
-        + '</div>';
-    }
+    var sCls = Math.abs(selisih) < 1 ? 'text-green' : 'text-red';
+    var actualText = actual > 0 ? fmtRp(actual) : 'Set Aktual';
+
+    selisihInfo = '<div style="font-size:0.7rem;margin-top:4px;border-top:1px dashed #ddd;padding-top:4px;cursor:pointer" onclick="promptSetActualBalance(\'' + a.kode + '\', \'' + a.nama.replace(/'/g, "\\'") + '\')">'
+      + '<span style="color:#64748b">Aktual:</span> <b style="color:#334155">' + actualText + '</b>'
+      + (actual > 0 ? '<br><span style="color:#64748b">Selisih:</span> <b class="' + sCls + '">' + fmtRp(selisih) + '</b>' : '')
+      + '</div>';
 
     return '<div style="background:' + bg + ';border-radius:12px;padding:16px;border-left:3px solid ' + border + ';box-shadow:0 1px 3px rgba(0,0,0,0.04)">'
       + '<div style="font-size:0.75rem;color:#64748b">' + a.nama + '</div>'
@@ -1914,16 +1914,31 @@ async function renderDashboardApprover() {
   });
   if (!dashKasAkun2.length) dashKasAkun2 = kasAkun.slice(0, 3);
   var pcSaldoReal2 = await getPettyCashSaldo();
+  var actualBalances2 = await getStoredBankActualBalances(dashKasAkun2.map(function(a){ return a.kode; }));
+
   const saldoCards = dashKasAkun2.map(function(a) {
     const net = ((a.nama||'').toLowerCase().includes('petty') || a.kode === '1-1101-3')
       ? pcSaldoReal2
       : ((saldo[a.kode] || {}).net || 0);
+
+    var actual = parseFloat(actualBalances2[a.kode]) || 0;
+    var selisih = net - actual;
+    var sCls = Math.abs(selisih) < 1 ? 'text-green' : 'text-red';
+    var actualText = actual > 0 ? fmtRp(actual) : 'Set Aktual';
+
     const bg = net > 0 ? '#f8fff8' : net < 0 ? '#fff8f8' : '#f8f9ff';
     const border = net > 0 ? '#10b981' : net < 0 ? '#f43f5e' : '#1a237e';
     const cls = net > 0 ? 'text-green' : net < 0 ? 'text-red' : 'text-blue';
+
+    var selisihInfo = '<div style="font-size:0.7rem;margin-top:4px;border-top:1px dashed #ddd;padding-top:4px;cursor:pointer" onclick="promptSetActualBalance(\'' + a.kode + '\', \'' + a.nama.replace(/'/g, "\\'") + '\')">'
+      + '<span style="color:#64748b">Aktual:</span> <b style="color:#334155">' + actualText + '</b>'
+      + (actual > 0 ? '<br><span style="color:#64748b">Selisih:</span> <b class="' + sCls + '">' + fmtRp(selisih) + '</b>' : '')
+      + '</div>';
+
     return '<div style="background:' + bg + ';border-radius:12px;padding:16px;border-left:3px solid ' + border + ';box-shadow:0 1px 3px rgba(0,0,0,0.04)">'
       + '<div style="font-size:0.75rem;color:#64748b">' + a.nama + '</div>'
       + '<div class="fw-bold ' + cls + ' saldo-card-val" style="margin-top:3px;word-break:break-word;line-height:1.2">' + fmtRp(Math.abs(net)) + '</div>'
+      + selisihInfo
       + '</div>';
   }).join('')
     + '<div style="background:#fff8f8;border-radius:12px;padding:16px;border-left:3px solid #f43f5e;box-shadow:0 1px 3px rgba(0,0,0,0.04)">'
@@ -6617,7 +6632,7 @@ async function renderSaldoHariIni() {
 
     return '<tr><td>' + a.kode + '</td><td class="fw-bold">' + a.nama + '</td>'
       + '<td class="text-right fw-bold ' + (net>=0?'text-green':'text-red') + '">' + fmtRp(net) + '</td>'
-      + '<td class="text-right">' + (actual > 0 ? fmtRp(actual) : '<span class="text-muted">-</span>') + '</td>'
+      + '<td class="text-right" style="cursor:pointer" title="Klik untuk set saldo aktual" onclick="promptSetActualBalance(\'' + a.kode + '\', \'' + a.nama.replace(/'/g, "\\'") + '\')">' + (actual > 0 ? fmtRp(actual) : '<span class="text-muted">Set Aktual</span>') + '</td>'
       + '<td class="text-right">' + selisihHtml + '</td>'
       + '<td><span class="badge ' + badgeCls + '">' + badgeText + '</span></td></tr>';
   }).join('');
@@ -17356,11 +17371,22 @@ function renderPageHeader(title) {
 }
 
 async function fixMandiriBalancePrompt() {
-  var target = 102817055.37;
-  if (confirm('Set Saldo Aktual Bank Mandiri ke Rp. 102.817.055,37?')) {
-    await saveStoredBankActualBalance('1-1101-2', target);
-    showAlert('Saldo Aktual Mandiri berhasil diperbarui!');
-    if (typeof navigate === 'function') navigate('lap-dashboard');
+  await promptSetActualBalance('1-1101-2', 'Kas dan Bank Mandiri');
+}
+
+async function promptSetActualBalance(kode, nama) {
+  var balances = await getStoredBankActualBalances([kode]);
+  var current = parseFloat(balances[kode]) || 0;
+  var input = prompt('Set Saldo Aktual untuk ' + nama + ' (' + kode + '):\n(Masukkan angka tanpa Rp, contoh: 102817055.37)', current || '');
+  if (input === null) return; // cancel
+
+  var val = parseNominal(input);
+  await saveStoredBankActualBalance(kode, val);
+  showAlert('Saldo Aktual ' + nama + ' berhasil diperbarui!', 'success');
+
+  // Refresh current view
+  if (typeof currentSection !== 'undefined' && currentSection) {
+      renderSection(currentSection);
   }
 }
 
