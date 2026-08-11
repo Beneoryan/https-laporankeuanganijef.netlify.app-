@@ -1050,11 +1050,15 @@ function buildSidebar() {
     }
 
     if (isBOD) {
-        if (groupName === 'Laporan') return ['lap-dashboard', 'lap-labarugi', 'lap-neraca', 'lap-aruskas', 'lap-print-bundle'].includes(item.id);
-        if (groupName === 'Transaksi') return item.id === 'dana-approval';
-        if (groupName === 'Monitor') return item.id.startsWith('monitor-');
-        if (groupName === 'Sinkron HR-Legal') return item.id === 'ims-live-karyawan';
-        return groupName === 'Bantuan';
+        const allowedIds = [
+          'lap-dashboard',
+          'lap-print-bundle',
+          'lap-analisis',
+          'dana-approval',
+          'ims-live-karyawan',
+          'portal-komunikasi'
+        ];
+        return allowedIds.includes(item.id);
     }
 
     if (isLimited) {
@@ -17018,19 +17022,19 @@ async function renderPortalKomunikasi() {
     + '<p class="text-muted" style="margin-top:-10px;margin-bottom:15px">Gunakan portal ini untuk berdiskusi, memberikan instruksi, atau berkoordinasi langsung dengan tim keuangan secara real-time.</p>'
     + '<div class="chat-container">'
     + '  <div class="chat-sidebar">'
-    + '    <div style="padding:16px;font-weight:700;border-bottom:1px solid #e2e8f0;background:white;font-size:0.85rem;color:#1a237e">👥 ANGGOTA AKTIF</div>'
-    + '    <div style="flex:1;overflow-y:auto">' + usersHtml + '</div>'
+    + '    <div class="chat-sidebar-header">👥 ANGGOTA AKTIF</div>'
+    + '    <div class="chat-user-list">' + usersHtml + '</div>'
     + '  </div>'
     + '  <div class="chat-main">'
     + '    <div id="chat-messages-container" class="chat-msg-list">' + msgsHtml + '</div>'
-    + '    <div style="padding:8px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-    + '      <span style="font-size:0.72rem;color:#64748b;font-weight:600">Quick Reply:</span>' + quickHtml
+    + '    <div class="chat-quick-templates">'
+    + '      <span class="chat-quick-label">Quick Reply:</span>' + quickHtml
     + '    </div>'
-    + '    <div class="chat-input-area" style="position:relative">'
+    + '    <div class="chat-input-area">'
     + '      <input type="file" id="chat-file-input" style="display:none" onchange="handleChatFileChange(this)">'
-    + '      <button class="btn btn-outline" style="padding:10px;border-radius:12px;border-color:#cbd5e1" onclick="triggerChatFileUpload()" title="Unggah File">📎</button>'
-    + '      <input type="text" id="chat-input" placeholder="Tulis pesan atau tempel (Paste) gambar di sini..." style="flex:1;padding:12px 16px;border:1.5px solid #cbd5e1;border-radius:12px;font-size:0.9rem" onkeydown="if(event.key===\'Enter\')sendPortalChatMessage()" onpaste="handleChatPaste(event)">'
-    + '      <button class="btn" style="background:#1a237e;color:white;border:none;padding:12px 24px;border-radius:12px;font-weight:600;cursor:pointer" onclick="sendPortalChatMessage()">Kirim 📤</button>'
+    + '      <button class="btn btn-outline chat-attachment-btn" onclick="triggerChatFileUpload()" title="Unggah File">📎</button>'
+    + '      <input type="text" id="chat-input" placeholder="Tulis pesan atau tempel gambar di sini..." onkeydown="if(event.key===\'Enter\')sendPortalChatMessage()" onpaste="handleChatPaste(event)">'
+    + '      <button class="btn btn-primary chat-send-btn" onclick="sendPortalChatMessage()">Kirim 📤</button>'
     + '    </div>'
     + '  </div>'
     + '</div>';
