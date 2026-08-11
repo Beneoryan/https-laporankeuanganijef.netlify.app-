@@ -16082,43 +16082,70 @@ async function showATKPublicForm() {
   }).join('');
   window._atkOpts = atkOpts;
   window._atkList = list;
-  document.body.innerHTML = '<div style="font-family:Segoe UI,sans-serif;max-width:480px;margin:0 auto;padding:20px;background:#f0f4f8;min-height:100vh">'
-    + '<div style="background:white;border-radius:14px;padding:24px;box-shadow:0 4px 16px rgba(0,0,0,0.1)">'
-    + '<div style="text-align:center;margin-bottom:20px">'
-    + '<div style="font-size:2.5rem">📋</div>'
-    + '<h2 style="color:#1a237e;margin:8px 0 4px">Form Pengambilan ATK</h2>'
-    + '<p style="color:#888;font-size:0.85rem">Isi form ini setiap mengambil ATK</p>'
+
+  var style = '<style>'
+    + '.pub-container { font-family: "Inter", sans-serif; width: 100%; max-width: 600px; margin: 0 auto; padding: 15px; box-sizing: border-box; background: #f0f4f8; min-height: 100vh; }'
+    + '.pub-card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }'
+    + '.pub-header { text-align: center; margin-bottom: 25px; }'
+    + '.pub-header h2 { color: #1a237e; margin: 10px 0 5px; font-weight: 800; font-family: "Plus Jakarta Sans", sans-serif; }'
+    + '.pub-header p { color: #64748b; font-size: 0.9rem; }'
+    + '.pub-fg { margin-bottom: 18px; }'
+    + '.pub-fg label { font-size: 0.85rem; font-weight: 700; color: #334155; display: block; margin-bottom: 6px; }'
+    + '.pub-input { width: 100%; padding: 12px 14px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 1rem; box-sizing: border-box; transition: border-color 0.2s; }'
+    + '.pub-input:focus { outline: none; border-color: #1a237e; }'
+    + '.pub-atk-row { display: grid; grid-template-columns: 1fr 90px 40px; gap: 10px; margin-bottom: 12px; align-items: start; }'
+    + '@media (max-width: 400px) { .pub-atk-row { grid-template-columns: 1fr 70px 35px; gap: 6px; } }'
+    + '.ss-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 8px; z-index: 100; max-height: 250px; overflow-y: auto; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }'
+    + '.search-select-wrap.open .ss-dropdown { display: block; }'
+    + '.ss-item { padding: 12px 14px; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }'
+    + '.ss-item:hover { background: #f8fafc; color: #1a237e; }'
+    + '.btn-add { background: #eef2ff; color: #1a237e; border: 1.5px dashed #c7d2fe; border-radius: 10px; padding: 12px; width: 100%; cursor: pointer; font-size: 0.9rem; font-weight: 700; transition: all 0.2s; }'
+    + '.btn-add:hover { background: #e0e7ff; }'
+    + '.btn-submit { width: 100%; margin-top: 25px; background: #1a237e; color: white; border: none; border-radius: 12px; padding: 16px; font-size: 1.1rem; font-weight: 800; cursor: pointer; box-shadow: 0 4px 12px rgba(26, 35, 126, 0.2); transition: transform 0.1s; }'
+    + '.btn-submit:active { transform: scale(0.98); }'
+    + '.btn-del { background: #fee2e2; color: #ef4444; border: none; border-radius: 8px; height: 45px; cursor: pointer; font-weight: bold; }'
+    + '</style>';
+
+  document.body.innerHTML = style + '<div class="pub-container">'
+    + '<div class="pub-card">'
+    + '<div class="pub-header">'
+    + '<div style="font-size:3rem">📦</div>'
+    + '<h2>Form Ambil ATK</h2>'
+    + '<p>Sistem Inventori IJEF Corp</p>'
     + '</div>'
     + '<div id="atk-form-result"></div>'
-    + '<div style="margin-bottom:14px"><label style="font-size:0.85rem;font-weight:600;color:#555;display:block;margin-bottom:5px">Nama Pengambil *</label>'
-    + '<input id="pub-pic" placeholder="Nama lengkap Anda" style="width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.9rem;box-sizing:border-box"></div>'
-    + '<div style="margin-bottom:14px"><label style="font-size:0.85rem;font-weight:600;color:#555;display:block;margin-bottom:5px">Tanggal Pengambilan</label>'
-    + '<input type="date" id="pub-tgl" value="' + new Date().toISOString().split('T')[0] + '" style="width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.9rem;box-sizing:border-box"></div>'
-    + '<div style="margin-bottom:14px"><label style="font-size:0.85rem;font-weight:600;color:#555;display:block;margin-bottom:5px">Keperluan / Keterangan</label>'
-    + '<input id="pub-ket" placeholder="Untuk keperluan apa?" style="width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.9rem;box-sizing:border-box"></div>'
-    + '<div style="margin-bottom:14px"><label style="font-size:0.85rem;font-weight:600;color:#555;display:block;margin-bottom:5px">Bukti / Eviden (opsional)</label>'
-    + '<input id="pub-link-bukti" placeholder="Link Google Drive / URL foto..." style="width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.9rem;box-sizing:border-box;margin-bottom:8px">'
-    + '<div style="font-size:0.78rem;color:#888;margin-bottom:6px">atau upload foto langsung:</div>'
-    + '<input type="file" id="pub-foto-bukti" accept="image/*" capture="environment" onchange="previewPubFoto(this)" style="font-size:0.85rem;width:100%">'
-    + '<div id="pub-foto-preview" style="margin-top:8px"></div>'
+    + '<div class="pub-fg"><label>Nama Pengambil *</label>'
+    + '<input id="pub-pic" class="pub-input" placeholder="Siapa yang mengambil?"></div>'
+    + '<div class="pub-fg"><label>Tanggal Pengambilan</label>'
+    + '<input type="date" id="pub-tgl" class="pub-input" value="' + new Date().toISOString().split('T')[0] + '"></div>'
+    + '<div class="pub-fg"><label>Keperluan / Keterangan</label>'
+    + '<input id="pub-ket" class="pub-input" placeholder="Contoh: Untuk operasional kantor"></div>'
+    + '<div class="pub-fg"><label>Bukti / Foto (opsional)</label>'
+    + '<div style="display:flex; flex-direction:column; gap:8px">'
+    + '<input id="pub-link-bukti" class="pub-input" placeholder="Link bukti (jika ada)">'
+    + '<div style="position:relative; overflow:hidden; display:inline-block">'
+    + '<button class="btn-add" style="border-style:solid; background:#f8fafc">📷 Ambil Foto / Upload</button>'
+    + '<input type="file" id="pub-foto-bukti" accept="image/*" capture="environment" onchange="previewPubFoto(this)" style="position:absolute; font-size:100px; right:0; top:0; opacity:0; cursor:pointer">'
+    + '</div></div>'
+    + '<div id="pub-foto-preview" style="margin-top:10px"></div>'
     + '</div>'
-    + '<div style="margin-bottom:6px"><label style="font-size:0.85rem;font-weight:600;color:#555;display:block;margin-bottom:8px">Daftar ATK yang Diambil *</label>'
-    + '<div id="pub-items-list">' + buildATKItemRow(atkOpts) + '</div>'
-    + '<button onclick="tambahBarisPubATK()" style="margin-top:8px;background:#e8eaf6;color:#1a237e;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-size:0.85rem;font-weight:600">+ Tambah Item ATK</button>'
+    + '<div style="margin-bottom:10px"><label style="font-size:0.85rem;font-weight:700;color:#334155;display:block;margin-bottom:10px">Daftar Barang *</label>'
+    + '<div id="pub-items-list">' + buildATKItemRow() + '</div>'
+    + '<button class="btn-add" onclick="tambahBarisPubATK()">+ Tambah Baris Barang</button>'
     + '</div>'
-    + '<button onclick="submitPubATKForm()" style="width:100%;margin-top:20px;background:#1a237e;color:white;border:none;border-radius:10px;padding:14px;font-size:1rem;font-weight:700;cursor:pointer">Kirim Form Pengambilan</button>'
+    + '<button class="btn-submit" onclick="submitPubATKForm()">Kirim Laporan Stok</button>'
     + '</div></div>';
 }
 
-function buildATKItemRow(atkOpts) {
-  return '<div class="pub-atk-row" style="display:grid;grid-template-columns:1fr 80px 30px;gap:8px;margin-bottom:8px;align-items:center">'
-    + '<div class="search-select-wrap">'
+function buildATKItemRow() {
+  return '<div class="pub-atk-row">'
+    + '<div class="search-select-wrap" style="position:relative">'
     + '<input type="hidden" class="pub-atk-id" value="">'
-    + '<input type="text" class="ss-input" placeholder="Cari ATK..." autocomplete="off" onfocus="openATKDropdown(this)" oninput="filterATKDropdown(this)">'
+    + '<input type="text" class="ss-input pub-input" placeholder="Cari Barang..." autocomplete="off" onfocus="openATKDropdown(this)" oninput="filterATKDropdown(this)" style="font-size:0.9rem">'
     + '<div class="ss-dropdown"></div>'
     + '</div>'
-    + '<input type="number" class="pub-atk-qty" placeholder="Qty" min="1" value="1" style="padding:8px;border:1.5px solid #ddd;border-radius:7px;font-size:0.85rem;text-align:center">'
-    + '<button onclick="this.closest(\'.pub-atk-row\').remove()" style="background:#f44336;color:white;border:none;border-radius:6px;padding:6px 8px;cursor:pointer">x</button>'
+    + '<input type="number" class="pub-atk-qty" placeholder="Qty" min="1" value="1" style="width:100%; height:45px; padding:8px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:1rem; text-align:center; box-sizing:border-box">'
+    + '<button class="btn-del" onclick="this.closest(\'.pub-atk-row\').remove()">✕</button>'
     + '</div>';
 }
 
@@ -16204,7 +16231,7 @@ function tambahBarisPubATK() {
   var container = document.getElementById('pub-items-list');
   if (!container) return;
   var div = document.createElement('div');
-  div.innerHTML = buildATKItemRow(window._atkOpts||'');
+  div.innerHTML = buildATKItemRow();
   container.appendChild(div.firstChild);
 }
 
@@ -16239,7 +16266,7 @@ async function submitPubATKForm() {
   if (document.getElementById('pub-foto-bukti')) document.getElementById('pub-foto-bukti').value = '';
   if (document.getElementById('pub-foto-preview')) document.getElementById('pub-foto-preview').innerHTML = '';
   window._pubFotoData = null;
-  document.getElementById('pub-items-list').innerHTML = buildATKItemRow(window._atkOpts||'');
+  document.getElementById('pub-items-list').innerHTML = buildATKItemRow();
 }
 
 async function tambahATK() {
