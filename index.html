@@ -106,8 +106,13 @@ body{font-family:'Inter',sans-serif;color:#333;font-size:14px;overflow-y: auto !
 }
 .login-box{background:white;border-radius:16px;padding:36px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.55);margin:16px;border:1px solid rgba(255,255,255,0.08)}
 .login-logo{text-align:center;margin-bottom:20px}
-#login-logo-container { width: clamp(64px, 18vw, 84px); height: clamp(64px, 18vw, 84px); margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; }
-#login-logo-container img { width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 12px; display:block; }
+#login-logo-container, #app-logo-container { display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; }
+#login-logo-container { width: clamp(64px, 18vw, 84px); height: clamp(64px, 18vw, 84px); margin: 0 auto 12px; border-radius: 12px; }
+#login-logo-container img, #app-logo-container img { width:100%; height:100%; max-width:100%; max-height:100%; object-fit:contain; display:block; }
+#login-logo-container img { border-radius: 12px; }
+#app-logo-container { width:32px; height:32px; border-radius:8px; }
+.app-brand{display:flex; align-items:center; gap:8px; cursor:pointer; min-width:0}
+.app-brand h1{margin:0}
 .login-logo h1{color:var(--ijef-primary);font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;letter-spacing:-0.02em;font-size:1.45rem;margin-top:8px}
 .login-logo p{color:#64748b;font-size:0.85rem;margin-top:4px;font-weight:500}
 .form-group{margin-bottom:14px}
@@ -321,8 +326,8 @@ td{padding:9px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
       <div style="display:flex; align-items:center; gap:12px">
         <button style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer" onclick="toggleSidebar()">☰</button>
         <button id="btn-back" onclick="goBack()" style="display:none; background:none; border:none; color:white; font-size:1.3rem; cursor:pointer;">⬅</button>
-        <div onclick="navigate('lap-dashboard')" style="display:flex; align-items:center; gap:8px; cursor:pointer">
-          <div id="app-logo-container" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center;"><img src="icons/icon-192x192.png" alt="Logo"></div>
+        <div class="app-brand" onclick="navigate('lap-dashboard')">
+          <div id="app-logo-container"><img src="icons/icon-192x192.png" alt="Logo"></div>
           <h1>Sistem Keuangan IJEF Corp</h1>
         </div>
       </div>
