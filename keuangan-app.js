@@ -1030,18 +1030,31 @@ function buildSidebar() {
 
   function canShowItem(item, groupName) {
     if (!hasRole(item.minRole)) return false;
-    // Superadmin bypass: See everything
+    // Superadmin Power: See everything
     if (KU.role === 'superadmin') return true;
 
-    if (isNanda && groupName === 'Transaksi') return item.id === 'portal-aset';
-    if (isBOD && groupName === 'Transaksi') return item.id === 'dana-approval';
-    if (isLimited && groupName === 'Transaksi') return item.id === 'dana-approval' || isIMSMenuItem(item);
-    if (isBOD && groupName === 'Laporan') return ['lap-dashboard', 'lap-labarugi', 'lap-neraca', 'lap-aruskas', 'lap-print-bundle'].includes(item.id);
-    if (isLimited && groupName === 'Laporan') return ['lap-dashboard', 'lap-print-bundle'].includes(item.id);
-    if ((isBOD || isLimited) && groupName === 'Monitor') return item.id.startsWith('monitor-');
-    if (isBOD && groupName === 'Sinkron HR-Legal') return item.id === 'ims-live-karyawan';
-    if (isNanda) return groupName === 'Bantuan' || groupName === 'Sinkron HR-Legal';
-    if (isBOD || isLimited) return groupName === 'Bantuan' || groupName === 'Sinkron HR-Legal';
+    if (isNanda) {
+        if (groupName === 'Transaksi') return item.id === 'portal-aset';
+        if (groupName === 'Sinkron HR-Legal') return item.id === 'ims-live-karyawan';
+        return groupName === 'Bantuan';
+    }
+
+    if (isBOD) {
+        if (groupName === 'Laporan') return ['lap-dashboard', 'lap-labarugi', 'lap-neraca', 'lap-aruskas', 'lap-print-bundle'].includes(item.id);
+        if (groupName === 'Transaksi') return item.id === 'dana-approval';
+        if (groupName === 'Monitor') return item.id.startsWith('monitor-');
+        if (groupName === 'Sinkron HR-Legal') return item.id === 'ims-live-karyawan';
+        return groupName === 'Bantuan';
+    }
+
+    if (isLimited) {
+        if (groupName === 'Laporan') return ['lap-dashboard', 'lap-print-bundle'].includes(item.id);
+        if (groupName === 'Transaksi') return item.id === 'dana-approval' || isIMSMenuItem(item);
+        if (groupName === 'Monitor') return item.id.startsWith('monitor-');
+        return groupName === 'Bantuan';
+    }
+
+    // Default for Admin or other roles
     return true;
   }
 
@@ -17424,6 +17437,7 @@ function updateChatMessageList(rawMsgs) {
 
 // ===== KEUANGAN IMS =====
 async function renderIMSFinance() {
+  if (KU.role === 'bod') return '<div class="alert alert-danger">Akses ditolak.</div>';
   const [pdList, dmList, atkList, atkLogList] = await Promise.all([
     KDB.getAll('permohonan'),
     KDB.getAll('danamasuk'),
@@ -17995,6 +18009,7 @@ async function renderIMSLivePage(colName, icon, title) {
  * Render Live Dashboard — ringkasan semua data IMS secara real-time.
  */
 async function renderIMSLiveDashboard() {
+  if (KU.role === 'bod') return '<div class="alert alert-danger">Akses ditolak.</div>';
   if (KU.role === 'bod') return '<div class="alert alert-danger">Akses ditolak.</div>';
   var sections = [
     { col: 'hrd_karyawan',        icon: '👤', label: 'Karyawan',        route: 'ims-live-karyawan',   amountKeys: [] },
