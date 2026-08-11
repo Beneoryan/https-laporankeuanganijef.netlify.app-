@@ -48,11 +48,6 @@ const MENU = [
     { id: 'dana-approval',   label: 'Approval Center', icon: '✅', minRole: 'viewer' },
     { id: 'portal-aset',     label: 'Portal Perlengkapan & Aset', icon: '📦', minRole: 'viewer' },
   ]},
-  { group: 'Keuangan IMS', icon: '🏢', items: [
-    { id: 'ims-finance',     label: 'Dashboard IMS',    icon: '📊', minRole: 'viewer' },
-    { id: 'kalk-inventori-atk', label: 'Inventori Stok ATK', icon: '📋', minRole: 'viewer' },
-    { id: 'ims-sub-keu',     label: 'Transaksi Keuangan IMS', icon: '💰', minRole: 'viewer' },
-  ]},
   { group: 'Jurnal', icon: '📝', items: [
     { id: 'jurnal-umum',         label: 'Jurnal Umum',         icon: '📓', minRole: 'leader' },
     { id: 'jurnal-penyesuaian',  label: 'Jurnal Penyesuaian',  icon: '🔧', minRole: 'leader' },
@@ -91,7 +86,24 @@ const MENU = [
     { id: 'kalk-po',            label: 'Purchase Order',         icon: '📦', minRole: 'viewer' },
     { id: 'kalk-gaji',          label: 'Gaji / Salary',          icon: '👔', minRole: 'admin' },
     { id: 'kalk-hpp',           label: 'Hitung HPP',             icon: '🏭', minRole: 'admin' },
-    { id: 'kalk-inventori-atk', label: 'Inventori Stok ATK',     icon: '📋', minRole: 'viewer' },
+  ]},
+  { group: 'Sinkron HR-Legal', icon: '🔗', items: [
+    { id: 'ims-live-dashboard',    label: '🟢 Live Dashboard IMS', icon: '📡', minRole: 'viewer' },
+    { id: 'ims-live-karyawan',     label: 'Data Karyawan Live',  icon: '👤',  minRole: 'viewer' },
+    { id: 'ims-live-penggajian',   label: 'Penggajian Live',     icon: '💰',  minRole: 'viewer' },
+    { id: 'ims-live-perjalanan',   label: 'Perjalanan Dinas Live', icon: '✈️', minRole: 'viewer' },
+    { id: 'ims-live-insentif',     label: 'Insentif Live',       icon: '🏆',  minRole: 'viewer' },
+    { id: 'ims-live-reimburse',    label: 'Reimbursement Live',  icon: '📋',  minRole: 'viewer' },
+    { id: 'ims-live-kasbon',       label: 'Kasbon & Loan Live',  icon: '💳',  minRole: 'viewer' },
+    { id: 'ims-live-tunjangan',    label: 'Tunjangan Live',      icon: '🎁',  minRole: 'viewer' },
+    { id: 'ims-live-overtime',     label: 'Overtime Live',       icon: '⏱️',  minRole: 'viewer' },
+    { id: 'ims-sync-perjalanan',   label: 'Perjalanan Dinas',   icon: '✈️',  minRole: 'viewer' },
+    { id: 'ims-sync-penggajian',   label: 'Penggajian',         icon: '💰',  minRole: 'viewer' },
+    { id: 'ims-sync-tax-bpjs',     label: 'Tax & BPJS',         icon: '🧮',  minRole: 'viewer' },
+    { id: 'ims-sync-insentif',     label: 'Insentif',           icon: '🏆',  minRole: 'viewer' },
+    { id: 'ims-sync-reimburse',    label: 'Reimbursement',      icon: '📋',  minRole: 'viewer' },
+    { id: 'ims-sync-kasbon',       label: 'Kasbon & Loan',      icon: '💳',  minRole: 'viewer' },
+    { id: 'ims-sync-tunjangan',    label: 'Tunjangan',          icon: '🎁',  minRole: 'viewer' },
   ]},
   { group: 'Bantuan', icon: '❓', items: [
     { id: 'bantuan', label: 'Cara Penggunaan', icon: '📖', minRole: 'viewer' },
@@ -108,6 +120,11 @@ const MENU = [
 ];
 
 // ===== HELPERS =====
+function isIMSMenuItem(item) {
+  if (!item) return false;
+  return ['ims-menu-keu', 'ims-finance', 'ims-sub-keu', 'kalk-inventori-atk', 'ims-sync-perjalanan', 'ims-sync-lap-keu'].includes(item.id);
+}
+
 function showLoading(v) {
   const el = document.getElementById('loading-overlay');
   if (el) el.classList.toggle('show', v);
@@ -344,6 +361,66 @@ async function syncDanaMasukLinkedJurnal(danaMasuk) {
   await KDB.save('jurnal', danaMasuk.jurnalId, jurnal);
 }
 
+async function syncLinkedDataJurnalNow() {
+  var loaded = await Promise.all([
+    KDB.getAll('permohonan'),
+    KDB.getAll('danamasuk'),
+    KDB.getAll('jurnal')
+  ]);
+  var pdList = loaded[0];
+  var dmList = loaded[1];
+  var jurnal = loaded[2];
+  var jurnalMap = {};
+  jurnal.forEach(function(j) { jurnalMap[j.id] = j; });
+
+  var synced = 0;
+  var skipped = 0;
+
+  for (var i = 0; i < pdList.length; i++) {
+    var p = pdList[i];
+    if (!p || !p.jurnalId) continue;
+    var jp = jurnalMap[p.jurnalId];
+    if (!jp) { skipped++; continue; }
+    var expectedDate = p.jatuhTempo || p.tanggal || '';
+    var expectedRef = p.noPOInvoice || p.id || '';
+    var expectedAmount = parseFloat(p.nominal) || 0;
+    var expectedDebit = p.akunDebit || '5-2200';
+    var expectedKredit = p.akunKredit || '1-1100';
+    var lineAkun = (jp.lines || []).map(function(l) { return l.akun; });
+    var mismatch = jp.tanggal !== expectedDate
+      || (jp.noRef || '') !== expectedRef
+      || Math.abs((parseFloat(jp.totalDebit) || 0) - expectedAmount) > 0.01
+      || lineAkun.indexOf(expectedDebit) === -1
+      || lineAkun.indexOf(expectedKredit) === -1;
+    if (!mismatch) continue;
+    await syncPermohonanLinkedJurnal(p);
+    synced++;
+  }
+
+  for (var d = 0; d < dmList.length; d++) {
+    var dm = dmList[d];
+    if (!dm || !dm.jurnalId) continue;
+    var jd = jurnalMap[dm.jurnalId];
+    if (!jd) { skipped++; continue; }
+    var expectedDateDM = dm.tanggal || '';
+    var expectedRefDM = dm.noRef || dm.id || '';
+    var expectedAmountDM = parseFloat(dm.nominal) || 0;
+    var expectedDebitDM = dm.akunTerima || '1-1100';
+    var expectedKreditDM = dm.kategori && (dm.kategori.startsWith('4-') || dm.kategori.startsWith('3-') || dm.kategori.startsWith('1-')) ? dm.kategori : '4-2000';
+    var lineAkunDM = (jd.lines || []).map(function(l) { return l.akun; });
+    var mismatchDM = jd.tanggal !== expectedDateDM
+      || (jd.noRef || '') !== expectedRefDM
+      || Math.abs((parseFloat(jd.totalDebit) || 0) - expectedAmountDM) > 0.01
+      || lineAkunDM.indexOf(expectedDebitDM) === -1
+      || lineAkunDM.indexOf(expectedKreditDM) === -1;
+    if (!mismatchDM) continue;
+    await syncDanaMasukLinkedJurnal(dm);
+    synced++;
+  }
+
+  return { synced: synced, skipped: skipped };
+}
+
 function findPreferredBankAccountCode(akunList, bankName, fallbackKode) {
   var fallback = fallbackKode || '1-1101-2';
   var lower = normalizeCompareText(bankName);
@@ -415,6 +492,20 @@ function formatNominalValue(n) {
 
 function genId(prefix) {
   return prefix + '-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substr(2, 4).toUpperCase();
+}
+
+function toComparableTimestamp(val) {
+  if (val === null || val === undefined || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  if (val instanceof Date) return isNaN(val.getTime()) ? 0 : val.getTime();
+  var parsed = Date.parse(val);
+  if (!isNaN(parsed)) return parsed;
+  var asNum = Number(val);
+  return isNaN(asNum) ? 0 : asNum;
+}
+
+function sortByCreatedAtDesc(a, b) {
+  return toComparableTimestamp(b && b.createdAt) - toComparableTimestamp(a && a.createdAt);
 }
 
 function openModal(html, title) {
@@ -677,6 +768,9 @@ window.addEventListener('load', async function() {
     if (fbResult === 'timeout') {
       console.warn('[System] Firebase init timed out. Operating in Offline/Local Mode.');
       window._kOfflineMode = true;
+      setTimeout(function() {
+        if (typeof ensureKFirebaseReady === 'function') ensureKFirebaseReady();
+      }, 1500);
     }
 
     await initUsers();
@@ -925,16 +1019,23 @@ function buildSidebar() {
   let html = '';
   let groupIdx = 0;
 
-  function renderItemsRecursive(items, level) {
+  function canShowItem(item, groupName) {
+    if (!hasRole(item.minRole)) return false;
+    if (isNanda && groupName === 'Transaksi') return item.id === 'portal-aset';
+    if (isBOD && groupName === 'Transaksi') return item.id === 'dana-approval';
+    if (isLimited && groupName === 'Transaksi') return item.id === 'dana-approval' || isIMSMenuItem(item);
+    if (isBOD && groupName === 'Laporan') return ['lap-dashboard', 'lap-labarugi', 'lap-neraca', 'lap-aruskas', 'lap-print-bundle'].includes(item.id);
+    if (isLimited && groupName === 'Laporan') return ['lap-dashboard', 'lap-print-bundle'].includes(item.id);
+    if ((isBOD || isLimited) && groupName === 'Monitor') return item.id.startsWith('monitor-');
+    if (isNanda) return groupName === 'Bantuan' || groupName === 'Sinkron HR-Legal';
+    if (isBOD || isLimited) return groupName === 'Bantuan' || groupName === 'Sinkron HR-Legal';
+    return true;
+  }
+
+  function renderItemsRecursive(items, level, groupName) {
     let subHtml = '';
     items.forEach(function(item) {
-      if (!hasRole(item.minRole)) return;
-
-      // Filter role per item for Nanda/BOD
-      if (isNanda && item.id !== 'portal-aset' && group.group === 'Transaksi') return;
-      if (isBOD && group.group === 'Transaksi' && item.id !== 'dana-approval') return;
-      // isLimited can see IMS
-      if (isLimited && group.group === 'Transaksi' && item.id !== 'dana-approval' && !item.id.startsWith('ims-')) return;
+      if (!canShowItem(item, groupName)) return;
 
       const hasSub = item.items && item.items.length > 0;
       const isActive = item.id === currentSection;
@@ -945,16 +1046,17 @@ function buildSidebar() {
 
       const levelClass = level === 1 ? ' sub' : (level === 2 ? ' sub-sub' : '');
       const hasSubClass = hasSub ? ' has-sub' : '';
+      const parentActiveClass = hasSub && childActive && !isActive ? ' active-parent' : '';
 
       subHtml += '<div class="sidebar-subgroup' + (childActive ? ' expanded' : '') + '">';
-      subHtml += '<div class="sidebar-item' + levelClass + hasSubClass + (isActive ? ' active' : '') + '" id="nav-' + item.id + '" '
+      subHtml += '<div class="sidebar-item' + levelClass + hasSubClass + (isActive ? ' active' : '') + parentActiveClass + '" id="nav-' + item.id + '" '
               + 'onclick="' + (hasSub ? 'toggleSidebarSubmenu(event, this)' : 'navigate(\'' + item.id + '\')') + '">'
-              + '<span><span class="icon">' + item.icon + '</span>' + item.label + '</span>'
+              + '<span class="sidebar-item-content"><span class="icon">' + item.icon + '</span><span class="sidebar-item-label">' + item.label + '</span></span>'
               + (hasSub ? '<span class="sidebar-sub-arrow">&#9654;</span>' : '') + '</div>';
 
       if (hasSub) {
         subHtml += '<div class="sidebar-submenu" ' + (childActive ? 'style="max-height:1000px"' : '') + '>';
-        subHtml += renderItemsRecursive(item.items, level + 1);
+        subHtml += renderItemsRecursive(item.items, level + 1, groupName);
         subHtml += '</div>';
       }
       subHtml += '</div>';
@@ -966,23 +1068,8 @@ function buildSidebar() {
     const visible = group.items.filter(function(item) { return hasRole(item.minRole); });
     if (!visible.length) return;
 
-    // Global group filter (same as before but adapted for nested)
-    window.group = group; // temporary for helper
     const filteredItems = visible.filter(function(item) {
-        if (isNanda) return (group.group === 'Transaksi' && item.id === 'portal-aset') || group.group === 'Bantuan';
-        if (isBOD) {
-            if (group.group === 'Laporan') return ['lap-dashboard', 'lap-labarugi', 'lap-neraca', 'lap-aruskas', 'lap-print-bundle'].includes(item.id);
-            if (group.group === 'Transaksi') return item.id === 'dana-approval';
-            if (group.group === 'Monitor') return item.id.startsWith('monitor-');
-            return group.group === 'Bantuan';
-        }
-        if (isLimited) {
-            if (group.group === 'Laporan') return ['lap-dashboard', 'lap-print-bundle'].includes(item.id);
-            if (group.group === 'Transaksi') return item.id === 'dana-approval' || item.id.startsWith('ims-');
-            if (group.group === 'Monitor') return item.id.startsWith('monitor-');
-            return group.group === 'Bantuan';
-        }
-        return true;
+        return canShowItem(item, group.group);
     });
 
     if (!filteredItems.length) return;
@@ -993,10 +1080,10 @@ function buildSidebar() {
 
     html += '<div class="sidebar-group' + (groupHasActive ? ' expanded' : '') + '" data-group-idx="' + groupIdx + '">';
     html += '<div class="sidebar-group-title" onclick="toggleSidebarGroup(this)">'
-          + '<span class="sidebar-group-arrow">' + (groupHasActive ? '&#9660;' : '&#9654;') + '</span> '
-          + group.icon + ' ' + group.group + '</div>';
+          + '<span class="sidebar-group-title-main"><span class="icon">' + group.icon + '</span><span class="sidebar-item-label">' + group.group + '</span></span>'
+          + '<span class="sidebar-group-arrow">' + (groupHasActive ? '&#9660;' : '&#9654;') + '</span></div>';
     html += '<div class="sidebar-group-items"' + (groupHasActive ? ' style="max-height:1000px"' : '') + '>';
-    html += renderItemsRecursive(filteredItems, 0);
+    html += renderItemsRecursive(filteredItems, 0, group.group);
     html += '</div></div><div class="sidebar-divider"></div>';
     groupIdx++;
   });
@@ -1049,6 +1136,39 @@ function buildContent() {
 
 let currentSection = '';
 let navHistory = [];
+const PROTECTED_SECTION_FIELD_PREFIXES = {
+  'dana-permohonan': ['pd-'],
+  'dana-masuk': ['dm-']
+};
+
+function getProtectedSectionFormState(sectionId) {
+  var prefixes = PROTECTED_SECTION_FIELD_PREFIXES[sectionId];
+  var sectionEl = document.getElementById('sec-' + sectionId);
+  if (!prefixes || !prefixes.length || !sectionEl) return '';
+  return Array.prototype.slice.call(sectionEl.querySelectorAll('input[id], select[id], textarea[id]'))
+    .filter(function(el) {
+      return prefixes.some(function(prefix) { return el.id.indexOf(prefix) === 0; });
+    })
+    .map(function(el) {
+      var val = (el.type === 'checkbox' || el.type === 'radio') ? String(!!el.checked) : (typeof el.value === 'string' ? el.value.trim() : '');
+      return el.id + '=' + val;
+    })
+    .join('&');
+}
+
+function snapshotProtectedSectionState(sectionId) {
+  if (!PROTECTED_SECTION_FIELD_PREFIXES[sectionId]) return;
+  window._kProtectedSectionState = window._kProtectedSectionState || {};
+  window._kProtectedSectionState[sectionId] = getProtectedSectionFormState(sectionId);
+}
+
+function hasProtectedUnsavedSectionState(sectionId) {
+  if (!PROTECTED_SECTION_FIELD_PREFIXES[sectionId]) return false;
+  var stateMap = window._kProtectedSectionState || {};
+  var initialState = stateMap[sectionId];
+  if (typeof initialState !== 'string') return false;
+  return getProtectedSectionFormState(sectionId) !== initialState;
+}
 
 // Re-render current section on orientation change/resize (to fix charts and grids)
 window.addEventListener('resize-charts', function() {
@@ -1136,6 +1256,17 @@ function navigate(id) {
 async function renderSection(id) {
   const el = document.getElementById('sec-' + id);
   if (!el) return;
+  // Show skeleton immediately for dashboard to prevent blank screen
+  if (id === 'lap-dashboard') {
+    el.innerHTML = '<div style="padding:16px">'
+      + '<div style="height:32px;background:#e2e8f0;border-radius:8px;width:60%;margin-bottom:20px;animation:shimmer 1.2s infinite linear;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%"></div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">'
+      + '<div style="height:80px;background:#e2e8f0;border-radius:12px;animation:shimmer 1.2s infinite linear;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%"></div>'
+      + '<div style="height:80px;background:#e2e8f0;border-radius:12px;animation:shimmer 1.2s infinite linear;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%"></div>'
+      + '</div>'
+      + '<div style="height:160px;background:#e2e8f0;border-radius:16px;margin-bottom:16px;animation:shimmer 1.2s infinite linear;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%"></div>'
+      + '</div>';
+  }
   showLoading(true);
   try {
     switch(id) {
@@ -1185,13 +1316,30 @@ async function renderSection(id) {
       case 'admin-users':         el.innerHTML = await renderAdminUsers(); break;
       case 'admin-import':        el.innerHTML = renderImport(); loadSavedApiKey(); break;
       case 'admin-export':        el.innerHTML = await renderExport(); break;
-      case 'dana-permohonan':     el.innerHTML = await renderPermohonanDana(); break;
-      case 'dana-masuk':          el.innerHTML = await renderDanaMasuk(); break;
+      case 'dana-permohonan':     el.innerHTML = await renderPermohonanDana(); snapshotProtectedSectionState('dana-permohonan'); break;
+      case 'dana-masuk':          el.innerHTML = await renderDanaMasuk(); snapshotProtectedSectionState('dana-masuk'); break;
       case 'dana-approval':       el.innerHTML = await renderApprovalCenter(); break;
       case 'portal-aset':         el.innerHTML = await renderPortalAset(); break;
       case 'ims-finance':         el.innerHTML = await renderIMSFinance(); break;
-      case 'ims-menu-keu':       el.innerHTML = await renderIMSMenuKeuangan(); break;
+      case 'ims-menu-keu':       el.innerHTML = await renderIMSFinance(); break;
       case 'ims-sub-keu':        el.innerHTML = await renderIMSSubKeuangan(); break;
+      case 'ims-live-dashboard':  el.innerHTML = await renderIMSLiveDashboard(); break;
+      case 'ims-live-karyawan':   el.innerHTML = await renderIMSLivePage('hrd_karyawan', '👤', 'Data Karyawan'); break;
+      case 'ims-live-penggajian': el.innerHTML = await renderIMSLivePage('hrd_penggajian', '💰', 'Penggajian'); break;
+      case 'ims-live-perjalanan': el.innerHTML = await renderIMSLivePage('hrd_perjalanan_dinas', '✈️', 'Perjalanan Dinas'); break;
+      case 'ims-live-insentif':   el.innerHTML = await renderIMSLivePage('hrd_insentif', '🏆', 'Insentif'); break;
+      case 'ims-live-reimburse':  el.innerHTML = await renderIMSLivePage('hrd_reimbursement', '📋', 'Reimbursement'); break;
+      case 'ims-live-kasbon':     el.innerHTML = await renderIMSLivePage('hrd_kasbon', '💳', 'Kasbon & Loan'); break;
+      case 'ims-live-tunjangan':  el.innerHTML = await renderIMSLivePage('hrd_tunjangan', '🎁', 'Tunjangan'); break;
+      case 'ims-live-overtime':   el.innerHTML = await renderIMSLivePage('hrd_overtime', '⏱️', 'Overtime'); break;
+      case 'ims-sync-perjalanan': el.innerHTML = await renderIMSSyncPage('perjalanan', '✈️', 'Perjalanan Dinas'); break;
+      case 'ims-sync-penggajian': el.innerHTML = await renderIMSSyncPage('penggajian', '💰', 'Penggajian'); break;
+      case 'ims-sync-tax-bpjs':   el.innerHTML = await renderIMSSyncPage('tax-bpjs', '🧮', 'Tax & BPJS'); break;
+      case 'ims-sync-insentif':   el.innerHTML = await renderIMSSyncPage('insentif', '🏆', 'Insentif'); break;
+      case 'ims-sync-reimburse':  el.innerHTML = await renderIMSSyncPage('reimburse', '📋', 'Reimbursement'); break;
+      case 'ims-sync-kasbon':     el.innerHTML = await renderIMSSyncPage('kasbon', '💳', 'Kasbon & Loan'); break;
+      case 'ims-sync-tunjangan':  el.innerHTML = await renderIMSSyncPage('tunjangan', '🎁', 'Tunjangan'); break;
+      case 'ims-sync-lap-keu':    el.innerHTML = await renderIMSSyncPage('laporan-keuangan', '📊', 'Laporan Keuangan IMS'); break;
       default: el.innerHTML = '<div class="empty-state"><span class="icon">🚧</span>Halaman dalam pengembangan</div>';
     }
   } catch(e) {
@@ -1224,7 +1372,11 @@ async function getAkun() {
 
 async function getAkunOptions(filter) {
   const akun = await getAkun();
-  const filtered = filter ? akun.filter(function(a) { return a.kategori.includes(filter) || a.tipe === filter; }) : akun;
+  const filtered = filter ? akun.filter(function(a) {
+    var kategori = (a && a.kategori) ? String(a.kategori) : '';
+    var tipe = (a && a.tipe) ? String(a.tipe) : '';
+    return kategori.includes(filter) || tipe === filter;
+  }) : akun;
   return filtered.map(function(a) { return '<option value="' + a.kode + '">' + a.kode + ' - ' + a.nama + '</option>'; }).join('');
 }
 
@@ -9370,7 +9522,7 @@ async function renderPermohonanDana() {
   const list = await KDB.getAll('permohonan');
   const approvers = await getApprovers();
   const myList = list.filter(function(x){ return x.pemohon === KU.username || hasRole('leader'); });
-  const sorted = myList.slice().sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
+  const sorted = myList.slice().sort(sortByCreatedAtDesc);
   const myLayer = (approvers.find(function(a){ return a.email === KU.email || a.role === KU.role; }) || {}).layer;
   const pendingForMe = list.filter(function(x){ return x.status === 'Pending Layer ' + myLayer; }).length;
 
@@ -9664,7 +9816,7 @@ async function buatJurnalDariPermohonan(id) {
 // ===== DANA MASUK =====
 async function renderDanaMasuk() {
   const list = await KDB.getAll('danamasuk');
-  const sorted = list.slice().sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
+  const sorted = list.slice().sort(sortByCreatedAtDesc);
   const approvers = await getApprovers();
   const myLayer = (approvers.find(function(a){ return a.email === KU.email || a.role === KU.role; }) || {}).layer;
   const pendingForMe = list.filter(function(x){ return x.status === 'Pending Layer ' + myLayer; }).length;
@@ -10069,29 +10221,6 @@ function renderAllApprovalTable(data, type, chkClass) {
       </tr>
     `;
   }).join('');
-}
-  const sorted = list.slice().sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
-  if (!sorted.length) return '<div class="empty-state"><span class="icon">📋</span>Belum ada data</div>';
-  const isPD = col === 'permohonan';
-  const rows = sorted.map(function(x) {
-    const isPending = x.status && x.status.startsWith('Pending');
-    const approveBtn = isPending && hasRole('leader') ? '<button class="btn btn-xs btn-success" onclick="approveItem(\'' + col + '\',\'' + x.id + '\')">ACC</button><button class="btn btn-xs btn-danger" onclick="rejectItem(\'' + col + '\',\'' + x.id + '\')">Tolak</button>' : '';
-    const undoBtn = x.status === STATUS.APPROVED && hasRole('leader') ? '<button class="btn btn-xs btn-secondary" onclick="undoApproval(\'' + col + '\',\'' + x.id + '\')" title="Undo Approval">↩️ Undo</button>' : '';
-    const resubmitBtn = x.status === STATUS.DRAFT && hasRole('leader') ? '<button class="btn btn-xs btn-primary" onclick="resubmitItem(\'' + col + '\',\'' + x.id + '\')" title="Ajukan Ulang ke Pending Layer 1">🔄 Ajukan Ulang</button>' : '';
-    const jurnalBadge = x.jurnalId ? '<span class="badge badge-success">✓ Jurnal</span>' : (x.status === STATUS.APPROVED ? '<span class="badge badge-warning">⏳</span>' : '');
-    const detailFn = isPD ? 'detailPermohonan' : 'detailDanaMasuk';
-    const checkBox = isPending ? '<input type="checkbox" class="appr-check" data-col="' + col + '" data-id="' + x.id + '">' : '';
-    return '<tr data-status="' + x.status + '"><td>' + checkBox + '</td><td>' + fmtDate(x.tanggal) + '</td><td class="fw-bold">' + (isPD ? x.namaPemohon : x.sumber) + '</td><td class="fw-bold ' + (isPD?'text-blue':'text-green') + '">' + fmtRp(x.nominal) + '</td><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (x.keterangan||'-') + '</td><td>' + statusBadge(x.status) + '</td><td>' + approvalFlow(x.status) + '</td><td class="tbl-actions"><button class="btn btn-xs btn-info" onclick="' + detailFn + '(\'' + x.id + '\')">Detail</button>' + approveBtn + undoBtn + resubmitBtn + jurnalBadge + '</td></tr>';
-  }).join('');
-  return '<div style="padding:8px 12px;background:#f8f9ff;border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-    + '<label style="font-size:0.82rem;font-weight:600"><input type="checkbox" onchange="toggleSelectAll(this,\'' + col + '\')"> Pilih Semua Pending</label>'
-    + '<button class="btn btn-xs btn-success" onclick="approveSelected(\'' + col + '\')">✅ Approve Terpilih</button>'
-    + '<button class="btn btn-xs btn-danger" onclick="rejectSelected(\'' + col + '\')">❌ Reject Terpilih</button>'
-    + '<button class="btn btn-xs btn-success" onclick="approveSemuaItem(\'' + col + '\')">✅ Approve Semua</button>'
-    + '<button class="btn btn-xs btn-danger" onclick="rejectSemuaItem(\'' + col + '\')">❌ Reject Semua</button>'
-    + '<span id="selected-count-all-' + col + '" style="font-size:0.8rem;color:#555">0 dipilih</span>'
-    + '</div>'
-    + '<div class="table-wrap" style="max-height:400px;overflow-y:auto"><table id="tbl-all-' + col + '"><thead><tr><th style="width:30px">✓</th><th>Tgl</th><th>' + (isPD?'Pemohon':'Sumber') + '</th><th>Nominal</th><th>Keterangan</th><th>Status</th><th>Approval Flow</th><th>Aksi</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 
 function filterApprovalAll(val) {
@@ -10901,6 +11030,10 @@ function renderActionConfirmation(action) {
     html += '<div style="font-size:0.85rem;margin-bottom:8px">'
       + '<b>Sinkronisasi Petty Cash → Jurnal</b><br>'
       + 'Membuat jurnal otomatis untuk semua transaksi petty cash yang belum terintegrasi.</div>';
+  } else if (action.type === 'sync_data_links') {
+    html += '<div style="font-size:0.85rem;margin-bottom:8px">'
+      + '<b>Sinkronisasi Data Link Transaksi</b><br>'
+      + 'Menyelaraskan data permohonan/dana masuk dengan jurnal yang sudah terhubung agar tanggal, referensi, akun, dan nominal tetap konsisten.</div>';
   } else {
     html += '<div style="font-size:0.85rem">Aksi: ' + JSON.stringify(action) + '</div>';
   }
@@ -11049,6 +11182,11 @@ async function eksekusiAIAction() {
       }
       chatEl.innerHTML += '<div style="display:flex;margin:8px 0"><div style="background:#c8e6c9;padding:8px 14px;border-radius:8px;font-size:0.85rem">✅ Sinkronisasi selesai! ' + syncCount + ' transaksi petty cash dibuatkan jurnal.</div></div>';
       showAlert(syncCount + ' transaksi petty cash disinkronkan!');
+
+    } else if (action.type === 'sync_data_links') {
+      var syncResult = await syncLinkedDataJurnalNow();
+      chatEl.innerHTML += '<div style="display:flex;margin:8px 0"><div style="background:#c8e6c9;padding:8px 14px;border-radius:8px;font-size:0.85rem">✅ Sinkronisasi data selesai! ' + syncResult.synced + ' link transaksi-jurnal diperbarui' + (syncResult.skipped ? ', ' + syncResult.skipped + ' dilewati (jurnal tidak ditemukan)' : '') + '.</div></div>';
+      showAlert('Sinkronisasi data selesai: ' + syncResult.synced + ' item diperbarui' + (syncResult.skipped ? ', ' + syncResult.skipped + ' dilewati' : '') + '.');
 
     } else {
       showAlert('Tipe aksi tidak dikenali: ' + action.type, 'warning');
@@ -11249,7 +11387,8 @@ async function callOpenRouterChat(msg, apiKey) {
       + '- "buatkan jurnal", "buat jurnal", "catat", "input jurnal" → buat jurnal baru\n'
       + '- "hapus", "delete", "buang", "hilangkan" → hapus jurnal\n'
       + '- "koreksi", "perbaiki", "fix", "betulkan", "revisi" → koreksi/edit jurnal\n'
-      + '- "sinkronkan", "sync", "pindahkan akun", "ganti akun" → reklasifikasi akun\n'
+      + '- "sinkronkan data", "sync data", "sinkronkan link", "sinkronkan jurnal terkait", "singkronkan data" → sinkronisasi link data transaksi-jurnal\n'
+      + '- "pindahkan akun", "ganti akun", "reklasifikasi" → reklasifikasi akun\n'
       + '- "top up", "isi kas", "tambah saldo" → top-up petty cash\n'
       + '- "bayar", "keluarkan", "pengeluaran" → pengeluaran petty cash\n'
       + '- "cek saldo", "berapa saldo", "posisi saldo" → tampilkan informasi saldo\n'
@@ -11274,7 +11413,8 @@ async function callOpenRouterChat(msg, apiKey) {
       + '###ACTION:{"type":"reklasifikasi","jurnal_id":"...","akun_asal":"kode","akun_tujuan":"kode"}###\n'
       + '###ACTION:{"type":"hapus_jurnal","id":"jurnal_id","alasan":"..."}###\n'
       + '###ACTION:{"type":"fix_coa_jurnal","akun_lama":"kode","akun_baru":"kode"}###\n'
-      + '###ACTION:{"type":"sinkron_pc"}###\n\n'
+      + '###ACTION:{"type":"sinkron_pc"}###\n'
+      + '###ACTION:{"type":"sync_data_links"}###\n\n'
       + 'Konteks data:\n' + konteks;
 
     // Bangun messages dengan history chat (max 10 pesan terakhir)
@@ -11411,6 +11551,14 @@ async function localAIReply(msg) {
         + '###ACTION:{"type":"jurnal","tanggal":"' + today() + '","keterangan":"' + ket.replace(/"/g,'\\"') + '","lines":[{"akun":"' + akunDebit + '","ket":"' + ket.replace(/"/g,'\\"') + '","debit":' + nominal + ',"kredit":0},{"akun":"' + akunKredit + '","ket":"Kas keluar","debit":0,"kredit":' + nominal + '}]}###';
     }
     return 'Untuk membuat jurnal, sebutkan nominal dan keterangan. Contoh:\n"Buatkan jurnal beban listrik 500000"';
+  }
+
+  if ((lower.includes('sinkron') || lower.includes('sync') || lower.includes('singkron'))
+      && (lower.includes('data') || lower.includes('link') || lower.includes('terkait') || lower.includes('didalamnya') || lower.includes('di dalamnya'))) {
+    return 'Saya akan cek dan sinkronkan link data transaksi dengan jurnal sekarang.\n'
+      + 'Jika ada data yang belum sinkron, sistem akan otomatis diperbarui.\n\n'
+      + 'Klik Konfirmasi untuk eksekusi.\n'
+      + '###ACTION:{"type":"sync_data_links"}###';
   }
 
   // Deteksi perintah topup petty cash
@@ -13455,7 +13603,7 @@ async function renderPortalAset() {
       + '</td></tr>';
   }).join('');
 
-  const pengadaanRows = pdPortal.slice().sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); }).map(function(p) {
+  const pengadaanRows = pdPortal.slice().sort(sortByCreatedAtDesc).map(function(p) {
     return '<tr>'
       + '<td>' + fmtDate(p.tanggal) + '</td>'
       + '<td class="fw-bold" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.keterangan||'-') + '</td>'
@@ -17133,44 +17281,134 @@ function updateChatMessageList(rawMsgs) {
 
 // ===== KEUANGAN IMS =====
 async function renderIMSFinance() {
+  const [pdList, dmList, atkList, atkLogList] = await Promise.all([
+    KDB.getAll('permohonan'),
+    KDB.getAll('danamasuk'),
+    KDB.getAll('inventori_atk'),
+    KDB.getAll('atk_log')
+  ]);
+  const imsPermohonan = (pdList || []).filter(isIMSRecord);
+  const imsDanaMasuk = (dmList || []).filter(isIMSRecord);
+  const pendingIMS = imsPermohonan.filter(function(item) {
+    return item.status && item.status.indexOf('Pending') === 0;
+  }).length;
+  const syncMenus = [
+    { id: 'ims-sync-perjalanan', icon: '✈️', title: 'Perjalanan Dinas', desc: 'Sinkron perjalanan dinas dari IMS ke permohonan dana dan approval.' },
+    { id: 'ims-sync-penggajian', icon: '💰', title: 'Penggajian', desc: 'Tarik kebutuhan pembayaran gaji dari menu Penggajian IMS.' },
+    { id: 'ims-sync-tax-bpjs', icon: '🧮', title: 'Tax & BPJS', desc: 'Sinkron kewajiban pajak dan BPJS dari IMS.' },
+    { id: 'ims-sync-insentif', icon: '🏆', title: 'Insentif', desc: 'Sinkron bonus, komisi, dan insentif karyawan.' },
+    { id: 'ims-sync-reimburse', icon: '📋', title: 'Reimbursement', desc: 'Sinkron penggantian biaya dari pengajuan IMS.' },
+    { id: 'ims-sync-kasbon', icon: '💳', title: 'Kasbon & Loan', desc: 'Sinkron pencairan kasbon dan pinjaman karyawan.' },
+    { id: 'ims-sync-tunjangan', icon: '🎁', title: 'Tunjangan', desc: 'Sinkron tunjangan, THR, makan, dan transport.' }
+  ];
+  const syncMenuCards = syncMenus.map(function(menu) {
+    return '<button class="card" style="text-align:left;padding:16px;border:1px solid var(--border);cursor:pointer;background:#fff" onclick="navigate(\'' + menu.id + '\')">'
+      + '<div style="display:flex;align-items:flex-start;gap:12px">'
+      + '<div style="font-size:1.5rem;line-height:1">' + menu.icon + '</div>'
+      + '<div><div style="font-weight:700;color:#0f172a">' + menu.title + '</div>'
+      + '<div style="color:#64748b;font-size:0.88rem;line-height:1.5;margin-top:4px">' + menu.desc + '</div></div>'
+      + '</div></button>';
+  }).join('');
+
   return '<div class="page-title">🏢 Keuangan IMS</div>'
     + '<div class="card">'
     + '  <div class="card-header"><h2>Dashboard Keuangan IMS</h2></div>'
     + '  <div class="stats-row">'
-    + '    <div class="stat-box"><div class="val">IMS</div><div class="lbl">Sistem Terintegrasi</div></div>'
-    + '    <div class="stat-box green"><div class="val">Aktif</div><div class="lbl">Status Menu</div></div>'
+    + '    <div class="stat-box"><div class="val">' + imsPermohonan.length + '</div><div class="lbl">Permohonan IMS</div></div>'
+    + '    <div class="stat-box green"><div class="val">' + imsDanaMasuk.length + '</div><div class="lbl">Dana Masuk IMS</div></div>'
+    + '    <div class="stat-box"><div class="val">' + ((atkList || []).length) + '</div><div class="lbl">Item Inventori ATK</div></div>'
+    + '    <div class="stat-box red"><div class="val">' + pendingIMS + '</div><div class="lbl">Pending Approval IMS</div></div>'
     + '  </div>'
-    + '  <div class="alert alert-info">Selamat datang di modul Keuangan IMS. Gunakan submenu untuk navigasi lebih lanjut.</div>'
-    + '</div>';
-}
-
-async function renderIMSMenuKeuangan() {
-  return '<div class="page-title">📊 Menu Keuangan IMS</div>'
+    + '  <div class="alert alert-info">Menu sinkron HR-Legal (termasuk Perjalanan Dinas) dipusatkan dalam satu bagian agar alur data keuangan, approval, dan jurnal tetap terintegrasi.</div>'
+    + '  <div style="display:flex; gap:12px; margin-top:16px; flex-wrap:wrap">'
+    + '    <button class="btn btn-primary" onclick="navigate(\'ims-sub-keu\')">💰 Buka Transaksi IMS</button>'
+    + '    <button class="btn btn-outline" onclick="navigate(\'kalk-inventori-atk\')">📋 Buka Inventori ATK</button>'
+    + '    <button class="btn btn-outline" onclick="navigate(\'dana-approval\')">✅ Approval Center</button>'
+    + '  </div>'
+    + '</div>'
     + '<div class="card">'
-    + '  <div class="card-header"><h2>Kelola Keuangan IMS</h2></div>'
-    + '  <p>Pilih sub-menu untuk melihat detail transaksi atau laporan khusus IMS.</p>'
+    + '  <div class="card-header"><h2>Semua Menu Sinkron HR-Legal</h2></div>'
+    + '  <div class="responsive-grid-2">' + syncMenuCards + '</div>'
+    + '</div>'
+    + '<div class="card">'
+    + '  <div class="card-header"><h2>Ringkasan Aktivitas IMS</h2></div>'
+    + '  <div class="responsive-grid-2">'
+    + '    <div class="alert alert-info" style="margin-bottom:0">📦 Aktivitas inventori tercatat sebanyak ' + ((atkLogList || []).length) + ' log dan tetap memakai modul Inventori Stok ATK yang sama.</div>'
+    + '    <div class="alert alert-info" style="margin-bottom:0">🔗 Semua tombol IMS diarahkan ke halaman sinkron terkait agar data jurnal, approval, semua menu keuangan, dan perjalanan dinas tetap satu alur.</div>'
+    + '  </div>'
     + '</div>';
 }
 
 async function renderIMSSubKeuangan() {
-  const pdList = await KDB.getAll('permohonan');
-  const imsPD = pdList.filter(p => (p.keterangan||"").toLowerCase().includes("ims")).length;
+  const [pdList, dmList] = await Promise.all([
+    KDB.getAll('permohonan'),
+    KDB.getAll('danamasuk')
+  ]);
+  const imsPermohonan = (pdList || []).filter(isIMSRecord);
+  const imsDanaMasuk = (dmList || []).filter(isIMSRecord);
+  const pendingPermohonan = imsPermohonan.filter(function(item) {
+    return item.status && item.status.indexOf('Pending') === 0;
+  }).length;
+
+  var pdRows = imsPermohonan.slice().sort(function(a,b){ return (b.tanggal||'').localeCompare(a.tanggal||''); }).map(function(p) {
+    var badgeColor = p.status === 'Approved' ? 'green' : (p.status && p.status.indexOf('Rejected') === 0 ? 'red' : '');
+    return '<tr>'
+      + '<td>' + fmtDate(p.tanggal) + '</td>'
+      + '<td class="fw-bold">' + (p.namaPIC || p.namaPemohon || '-') + '</td>'
+      + '<td>' + (p.keterangan || p.ket || '-') + '</td>'
+      + '<td class="fw-bold text-green">' + fmtRp(p.nominal || p.jumlah || 0) + '</td>'
+      + '<td><span class="badge ' + badgeColor + '">' + (p.status || '-') + '</span></td>'
+      + '</tr>';
+  }).join('');
+
+  var dmRows = imsDanaMasuk.slice().sort(function(a,b){ return (b.tanggal||'').localeCompare(a.tanggal||''); }).map(function(d) {
+    return '<tr>'
+      + '<td>' + fmtDate(d.tanggal) + '</td>'
+      + '<td class="fw-bold">' + (d.sumber || d.namaPIC || '-') + '</td>'
+      + '<td>' + (d.keterangan || d.ket || '-') + '</td>'
+      + '<td class="fw-bold text-green">' + fmtRp(d.nominal || d.jumlah || 0) + '</td>'
+      + '<td>' + (d.tipeTransaksi || '-') + '</td>'
+      + '</tr>';
+  }).join('');
 
   return '<div class="page-title">💰 Sub Menu Keuangan IMS</div>'
     + '<div class="card">'
     + '  <div class="card-header"><h2>Transaksi Keuangan IMS</h2></div>'
     + '  <div class="stats-row">'
-    + '    <div class="stat-box"><div class="val">' + imsPD + '</div><div class="lbl">Permohonan IMS</div></div>'
+    + '    <div class="stat-box"><div class="val">' + imsPermohonan.length + '</div><div class="lbl">Permohonan IMS</div></div>'
+    + '    <div class="stat-box green"><div class="val">' + imsDanaMasuk.length + '</div><div class="lbl">Dana Masuk IMS</div></div>'
+    + '    <div class="stat-box red"><div class="val">' + pendingPermohonan + '</div><div class="lbl">Pending IMS</div></div>'
     + '  </div>'
     + '  <div style="display:flex; gap:12px; margin-top:16px; flex-wrap:wrap">'
     + '    <button class="btn btn-primary" onclick="buatPermohonanIMS()">📤 Buat Permohonan Dana IMS</button>'
-    + '    <button class="btn btn-success" onclick="buatDanaMasukIMS()">📥 Catat Dana Masuk IMS</button>'
+    + '    <button class="btn btn-primary" onclick="buatDanaMasukIMS()">📥 Catat Dana Masuk IMS</button>'
+    + '    <button class="btn btn-outline" onclick="navigate(\'dana-approval\')">✅ Lihat Approval IMS</button>'
     + '  </div>'
     + '</div>'
     + '<div class="card">'
+    + '  <div class="card-header"><h2>Riwayat Permohonan Dana IMS</h2></div>'
+    + (imsPermohonan.length === 0
+        ? '<div class="alert alert-info">Belum ada permohonan dana dengan keterangan IMS.</div>'
+        : '<div class="table-responsive"><table class="table"><thead><tr><th>Tanggal</th><th>PIC</th><th>Keterangan</th><th>Nominal</th><th>Status</th></tr></thead><tbody>' + pdRows + '</tbody></table></div>')
+    + '</div>'
+    + '<div class="card">'
+    + '  <div class="card-header"><h2>Riwayat Dana Masuk IMS</h2></div>'
+    + (imsDanaMasuk.length === 0
+        ? '<div class="alert alert-info">Belum ada dana masuk dengan keterangan IMS.</div>'
+        : '<div class="table-responsive"><table class="table"><thead><tr><th>Tanggal</th><th>Sumber</th><th>Keterangan</th><th>Nominal</th><th>Tipe Transaksi</th></tr></thead><tbody>' + dmRows + '</tbody></table></div>')
+    + '</div>'
+    + '<div class="card">'
     + '  <div class="card-header"><h2>Panduan Integrasi</h2></div>'
-    + '  <p class="text-muted">Tombol di atas akan mengarahkan Anda ke form transaksi umum dengan keterangan yang sudah terisi otomatis untuk mempermudah pelacakan data IMS.</p>'
+    + '  <p style="color:#64748b;line-height:1.6">Tombol di atas akan mengarahkan Anda ke form transaksi umum dengan keterangan yang sudah terisi otomatis untuk mempermudah pelacakan data IMS tanpa memecah data dari modul utama.</p>'
     + '</div>';
+}
+
+function isIMSRecord(item) {
+  if (!item) return false;
+  const imsPattern = /(^|[^a-z0-9])ims([^a-z0-9]|$)/i;
+  return ['keterangan', 'ket', 'nama', 'ref', 'noRef', 'judul', 'tujuan'].some(function(key) {
+    return imsPattern.test(String(item[key] || ''));
+  });
 }
 
 window.buatPermohonanIMS = function() {
@@ -17194,3 +17432,481 @@ window.buatDanaMasukIMS = function() {
     }
   }, 500);
 };
+
+// ===== SINKRON IMS — Dedicated pages for each IMS finance category =====
+
+var IMS_SYNC_CONFIG = {
+  'perjalanan': {
+    label: 'Perjalanan Dinas',
+    keywords: ['perjalanan dinas', 'perdin', 'business trip', 'dinas luar'],
+    defaultKet: 'Perjalanan Dinas - [Tujuan/Keperluan]',
+    info: 'Ajukan permohonan dana untuk kebutuhan perjalanan dinas karyawan, termasuk transportasi, penginapan, dan uang saku.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '✈️ Buka Menu Perjalanan Dinas di IMS'
+  },
+  'penggajian': {
+    label: 'Penggajian',
+    keywords: ['gaji', 'penggajian', 'salary', 'payroll', 'upah'],
+    defaultKet: 'Penggajian - [Bulan/Periode]',
+    info: 'Kelola dan ajukan permohonan dana untuk pembayaran gaji karyawan. Data tersinkron dari menu Penggajian IMS.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '💰 Buka Menu Penggajian di IMS'
+  },
+  'tax-bpjs': {
+    label: 'Tax & BPJS',
+    keywords: ['pajak', 'bpjs', 'pph', 'ppn', 'tax'],
+    defaultKet: 'Tax & BPJS - [Periode]',
+    info: 'Ajukan permohonan dana untuk pembayaran pajak (PPh, PPN) dan iuran BPJS Ketenagakerjaan serta BPJS Kesehatan.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '🧮 Buka Menu Tax & BPJS di IMS'
+  },
+  'insentif': {
+    label: 'Insentif',
+    keywords: ['insentif', 'bonus', 'komisi', 'reward', 'incentive'],
+    defaultKet: 'Insentif - [Nama/Periode]',
+    info: 'Ajukan permohonan dana untuk pembayaran insentif, bonus, dan komisi karyawan berdasarkan data dari IMS.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '🏆 Buka Menu Insentif di IMS'
+  },
+  'reimburse': {
+    label: 'Reimbursement',
+    keywords: ['reimburse', 'reimbursement', 'klaim', 'penggantian biaya'],
+    defaultKet: 'Reimbursement - [Nama/Keperluan]',
+    info: 'Proses penggantian biaya yang sudah dikeluarkan karyawan. Tarik data pengajuan dari menu Reimbursement IMS.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '📋 Buka Menu Reimbursement di IMS'
+  },
+  'kasbon': {
+    label: 'Kasbon & Loan',
+    keywords: ['kasbon', 'loan', 'pinjaman', 'cicilan', 'hutang karyawan'],
+    defaultKet: 'Kasbon & Loan - [Nama Karyawan]',
+    info: 'Kelola pencairan kasbon dan pinjaman karyawan. Data pengajuan diambil dari menu Kasbon & Loan di IMS.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '💳 Buka Menu Kasbon & Loan di IMS'
+  },
+  'tunjangan': {
+    label: 'Tunjangan',
+    keywords: ['tunjangan', 'allowance', 'thr', 'uang makan', 'transport karyawan'],
+    defaultKet: 'Tunjangan - [Jenis/Periode]',
+    info: 'Ajukan permohonan dana untuk pembayaran tunjangan karyawan (THR, uang makan, transport, dll) dari data IMS.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '🎁 Buka Menu Tunjangan di IMS'
+  },
+  'laporan-keuangan': {
+    label: 'Laporan Keuangan IMS',
+    keywords: ['laporan keuangan ims', 'rekap keuangan', 'keuangan ims'],
+    defaultKet: 'Laporan Keuangan IMS - [Periode]',
+    info: 'Rekap dan sinkronisasi laporan keuangan dari sistem IMS. Tarik data untuk diintegrasikan ke jurnal keuangan utama.',
+    imsLink: 'https://hr-legal-app.netlify.app',
+    imsBtnLabel: '📊 Buka Laporan Keuangan di IMS'
+  }
+};
+
+async function renderIMSSyncPage(categoryKey, icon, title) {
+  var cfg = IMS_SYNC_CONFIG[categoryKey] || {};
+  var keywords = cfg.keywords || [categoryKey];
+  var defaultKet = cfg.defaultKet || (title + ' - [Keterangan]');
+  var info = cfg.info || 'Sinkronisasi data dari IMS.';
+  var imsLink = cfg.imsLink || 'https://hr-legal-app.netlify.app';
+  var imsBtnLabel = cfg.imsBtnLabel || ('🔗 Buka ' + title + ' di IMS');
+
+  var [pdList, dmList] = await Promise.all([
+    KDB.getAll('permohonan'),
+    KDB.getAll('danamasuk')
+  ]);
+
+  function matchKeyword(item) {
+    var text = [item.keterangan, item.ket, item.nama, item.ref, item.noRef, item.judul, item.tujuan, item.kategori]
+      .map(function(v){ return String(v||'').toLowerCase(); }).join(' ');
+    return keywords.some(function(kw){ return text.includes(kw.toLowerCase()); });
+  }
+
+  var matchedPD = (pdList||[]).filter(matchKeyword);
+  var matchedDM = (dmList||[]).filter(matchKeyword);
+  var pendingCount = matchedPD.filter(function(x){ return x.status && x.status.startsWith('Pending'); }).length;
+  var totalNominal = matchedPD.reduce(function(s,x){ return s+(parseFloat(x.jumlah)||parseFloat(x.total)||0); }, 0);
+
+  var pdRows = matchedPD.slice().sort(function(a,b){ return (b.tanggal||'').localeCompare(a.tanggal||''); }).slice(0,8)
+    .map(function(p) {
+      var statusColor = p.status === 'Approved' ? '#065f46' : p.status === 'Rejected' ? '#7f1d1d' : '#92400e';
+      var statusBg   = p.status === 'Approved' ? '#ecfdf5'  : p.status === 'Rejected' ? '#fef2f2'  : '#fffbeb';
+      return '<tr>'
+        + '<td>' + fmtDate(p.tanggal) + '</td>'
+        + '<td>' + (p.keterangan||p.ket||'-') + '</td>'
+        + '<td class="text-right">' + fmtRp(parseFloat(p.jumlah)||parseFloat(p.total)||0) + '</td>'
+        + '<td><span style="background:' + statusBg + ';color:' + statusColor + ';border-radius:10px;padding:2px 9px;font-size:0.73rem;font-weight:600">' + (p.status||'-') + '</span></td>'
+        + '</tr>';
+    }).join('');
+
+  var dmRows = matchedDM.slice().sort(function(a,b){ return (b.tanggal||'').localeCompare(a.tanggal||''); }).slice(0,5)
+    .map(function(d) {
+      return '<tr>'
+        + '<td>' + fmtDate(d.tanggal) + '</td>'
+        + '<td>' + (d.keterangan||d.ket||'-') + '</td>'
+        + '<td class="text-right text-green">' + fmtRp(parseFloat(d.jumlah)||parseFloat(d.total)||0) + '</td>'
+        + '</tr>';
+    }).join('');
+
+  var safeKey = categoryKey.replace(/[^a-z0-9\-]/g,'');
+  var fnName = 'imsSyncPermohonan_' + safeKey.replace(/-/g,'_');
+  if (!window[fnName]) {
+    window[fnName] = function() {
+      var ket = IMS_SYNC_CONFIG[categoryKey] ? IMS_SYNC_CONFIG[categoryKey].defaultKet : (title + ' - [Keterangan]');
+      navigate('dana-permohonan');
+      setTimeout(function() {
+        var ketEl = document.getElementById('pd-ket');
+        if (ketEl) { ketEl.value = ket; ketEl.focus(); }
+      }, 500);
+    };
+  }
+
+  return '<div class="page-title">' + icon + ' ' + title + ' — Sinkron HR-Legal</div>'
+
+    // Tombol Permohonan Dana — paling atas, prominent
+    + '<button class="ims-sync-permohonan-btn" onclick="' + fnName + '()">'
+    + '📤 Buat Permohonan Dana — ' + title
+    + '</button>'
+
+    // Stats
+    + '<div class="stats-row">'
+    + '<div class="stat-box"><div class="val">' + matchedPD.length + '</div><div class="lbl">Permohonan ' + title + '</div></div>'
+    + '<div class="stat-box green"><div class="val">' + matchedDM.length + '</div><div class="lbl">Dana Masuk ' + title + '</div></div>'
+    + '<div class="stat-box red"><div class="val">' + pendingCount + '</div><div class="lbl">Menunggu Approval</div></div>'
+    + '<div class="stat-box orange"><div class="val">' + fmtRp(totalNominal) + '</div><div class="lbl">Total Permohonan</div></div>'
+    + '</div>'
+
+    // Info
+    + '<div class="alert alert-info" style="margin-bottom:16px">ℹ️ ' + info + '</div>'
+
+    // Tabel Permohonan Dana
+    + '<div class="card">'
+    + '<div class="card-header"><h2>📤 Riwayat Permohonan Dana — ' + title + '</h2>'
+    + '<button class="btn btn-sm btn-outline" onclick="navigate(\'dana-approval\')">Buka Approval Center</button>'
+    + '</div>'
+    + (pdRows
+        ? '<div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Keterangan</th><th>Jumlah</th><th>Status</th></tr></thead><tbody>' + pdRows + '</tbody></table></div>'
+        : '<div class="empty-state"><span class="icon">' + icon + '</span><div>Belum ada permohonan dana untuk ' + title + '</div></div>')
+    + '</div>'
+
+    // Tabel Dana Masuk
+    + '<div class="card">'
+    + '<div class="card-header"><h2>📥 Riwayat Dana Masuk — ' + title + '</h2></div>'
+    + (dmRows
+        ? '<div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Keterangan</th><th>Jumlah</th></tr></thead><tbody>' + dmRows + '</tbody></table></div>'
+        : '<div class="empty-state"><span class="icon">📭</span><div>Belum ada dana masuk untuk ' + title + '</div></div>')
+    + '</div>'
+
+    // Tombol buka IMS
+    + '<div class="card">'
+    + '<div class="card-header"><h2>🔗 Sinkronisasi Data dari Aplikasi IMS</h2></div>'
+    + '<p style="color:#64748b;line-height:1.7;margin-bottom:16px">Data di halaman ini diambil dari koleksi permohonan dan dana masuk yang memiliki kata kunci <b>' + title.toLowerCase() + '</b>. Untuk melihat data lengkap, buka menu ' + title + ' langsung di aplikasi IMS (HR-Legal App).</p>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    + '<a href="' + imsLink + '" target="_blank" rel="noopener" class="btn btn-outline">' + imsBtnLabel + '</a>'
+    + '<button class="btn btn-primary" onclick="' + fnName + '()">📤 Buat Permohonan Dana</button>'
+    + '<button class="btn btn-outline" onclick="navigate(\'dana-approval\')">✅ Buka Approval Center</button>'
+    + '</div>'
+    + '</div>';
+}
+
+// ===== IMS LIVE DATA =====
+
+/**
+ * Config field mapping per IMS collection for display.
+ * Each entry defines which fields to show as columns in the live table.
+ */
+var IMS_LIVE_COL_MAP = {
+  'hrd_karyawan': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_lengkap', 'name'] },
+      { label: 'Jabatan', keys: ['jabatan', 'posisi', 'position'] },
+      { label: 'Departemen', keys: ['departemen', 'department', 'divisi'] },
+      { label: 'Status', keys: ['status', 'status_kerja'] },
+      { label: 'No HP', keys: ['no_hp', 'phone', 'telepon', 'hp'] },
+    ],
+    amountKeys: [],
+    dateKeys: ['tanggal_masuk', 'join_date', 'tgl_masuk'],
+    statusKeys: ['status', 'status_kerja'],
+  },
+  'hrd_penggajian': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_karyawan', 'employee'] },
+      { label: 'Periode', keys: ['periode', 'bulan', 'month'] },
+      { label: 'Gaji Pokok', keys: ['gaji_pokok', 'basic_salary', 'gaji'] },
+      { label: 'Total', keys: ['total_gaji', 'total', 'net_gaji', 'nett'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['gaji_pokok', 'total_gaji', 'total', 'net_gaji', 'nett', 'gaji'],
+    dateKeys: ['tanggal', 'tgl_bayar', 'periode', 'created_at'],
+    statusKeys: ['status'],
+  },
+  'hrd_perjalanan_dinas': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_karyawan', 'karyawan'] },
+      { label: 'Tujuan', keys: ['tujuan', 'destination', 'keperluan'] },
+      { label: 'Tanggal', keys: ['tanggal', 'tgl_berangkat', 'tgl_mulai'] },
+      { label: 'Biaya', keys: ['biaya', 'total_biaya', 'nominal', 'anggaran'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['biaya', 'total_biaya', 'nominal', 'anggaran', 'total'],
+    dateKeys: ['tanggal', 'tgl_berangkat', 'tgl_mulai'],
+    statusKeys: ['status'],
+  },
+  'hrd_insentif': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_karyawan'] },
+      { label: 'Jenis', keys: ['jenis', 'type', 'kategori'] },
+      { label: 'Periode', keys: ['periode', 'bulan'] },
+      { label: 'Jumlah', keys: ['jumlah', 'nominal', 'total', 'amount'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['jumlah', 'nominal', 'total', 'amount'],
+    dateKeys: ['tanggal', 'periode'],
+    statusKeys: ['status'],
+  },
+  'hrd_reimbursement': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_karyawan', 'karyawan'] },
+      { label: 'Keperluan', keys: ['keperluan', 'keterangan', 'deskripsi'] },
+      { label: 'Tanggal', keys: ['tanggal', 'tgl_pengajuan'] },
+      { label: 'Jumlah', keys: ['jumlah', 'nominal', 'total', 'amount'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['jumlah', 'nominal', 'total', 'amount'],
+    dateKeys: ['tanggal', 'tgl_pengajuan'],
+    statusKeys: ['status'],
+  },
+  'hrd_kasbon': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_karyawan'] },
+      { label: 'Keperluan', keys: ['keperluan', 'keterangan', 'alasan'] },
+      { label: 'Tanggal', keys: ['tanggal', 'tgl_pengajuan'] },
+      { label: 'Jumlah', keys: ['jumlah', 'nominal', 'total', 'amount'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['jumlah', 'nominal', 'total', 'amount'],
+    dateKeys: ['tanggal', 'tgl_pengajuan'],
+    statusKeys: ['status'],
+  },
+  'hrd_tunjangan': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_karyawan'] },
+      { label: 'Jenis', keys: ['jenis', 'type', 'kategori'] },
+      { label: 'Periode', keys: ['periode', 'bulan'] },
+      { label: 'Jumlah', keys: ['jumlah', 'nominal', 'total', 'amount'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['jumlah', 'nominal', 'total', 'amount'],
+    dateKeys: ['tanggal', 'periode'],
+    statusKeys: ['status'],
+  },
+  'hrd_overtime': {
+    cols: [
+      { label: 'Nama', keys: ['nama', 'nama_karyawan'] },
+      { label: 'Tanggal', keys: ['tanggal', 'tgl_lembur'] },
+      { label: 'Durasi (jam)', keys: ['durasi', 'jam', 'hours', 'lama'] },
+      { label: 'Total', keys: ['total', 'total_bayar', 'nominal', 'amount'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['total', 'total_bayar', 'nominal', 'amount'],
+    dateKeys: ['tanggal', 'tgl_lembur'],
+    statusKeys: ['status'],
+  },
+};
+
+function _imsVal(item, keys) {
+  for (var i = 0; i < keys.length; i++) {
+    if (item[keys[i]] !== undefined && item[keys[i]] !== null && item[keys[i]] !== '') {
+      return item[keys[i]];
+    }
+  }
+  return '-';
+}
+
+function _imsStatusBadge(val) {
+  if (!val || val === '-') return '<span style="color:#94a3b8">—</span>';
+  var v = String(val).toLowerCase();
+  var color = '#64748b', bg = '#f1f5f9';
+  if (v.includes('approv') || v.includes('aktif') || v.includes('lunas') || v.includes('selesai') || v.includes('done') || v === 'approved') {
+    color = '#065f46'; bg = '#ecfdf5';
+  } else if (v.includes('reject') || v.includes('batal') || v.includes('denied')) {
+    color = '#7f1d1d'; bg = '#fef2f2';
+  } else if (v.includes('pending') || v.includes('proses') || v.includes('review') || v.includes('menunggu')) {
+    color = '#92400e'; bg = '#fffbeb';
+  }
+  return '<span style="background:' + bg + ';color:' + color + ';border-radius:10px;padding:2px 9px;font-size:0.73rem;font-weight:600">' + val + '</span>';
+}
+
+/**
+ * Render a LIVE data page reading directly from the IMS Firestore collection.
+ */
+async function renderIMSLivePage(colName, icon, title) {
+  var cfg = IMS_LIVE_COL_MAP[colName] || {
+    cols: [
+      { label: 'ID', keys: ['id'] },
+      { label: 'Nama', keys: ['nama', 'name', 'nama_karyawan'] },
+      { label: 'Tanggal', keys: ['tanggal', 'created_at', 'date'] },
+      { label: 'Jumlah', keys: ['jumlah', 'nominal', 'total', 'amount'] },
+      { label: 'Status', keys: ['status'] },
+    ],
+    amountKeys: ['jumlah', 'nominal', 'total', 'amount'],
+    dateKeys: ['tanggal', 'created_at'],
+    statusKeys: ['status'],
+  };
+
+  var items = [];
+  var loadError = null;
+  try {
+    items = await KDB.getAllIMS(colName);
+  } catch(e) {
+    loadError = e.message;
+  }
+
+  var now = new Date();
+  var lastUpdate = now.toLocaleString('id-ID');
+
+  // Sort by date desc
+  var dateKey = cfg.dateKeys[0];
+  items = items.slice().sort(function(a, b) {
+    return String(b[dateKey] || b.tanggal || '').localeCompare(String(a[dateKey] || a.tanggal || ''));
+  });
+
+  // Compute totals
+  var totalAmount = 0;
+  if (cfg.amountKeys.length > 0) {
+    items.forEach(function(item) {
+      var v = parseFloat(_imsVal(item, cfg.amountKeys));
+      if (!isNaN(v)) totalAmount += v;
+    });
+  }
+
+  // Count by status
+  var statusCounts = {};
+  if (cfg.statusKeys.length > 0) {
+    items.forEach(function(item) {
+      var s = String(_imsVal(item, cfg.statusKeys));
+      statusCounts[s] = (statusCounts[s] || 0) + 1;
+    });
+  }
+
+  // Build table header
+  var thead = cfg.cols.map(function(c) { return '<th>' + c.label + '</th>'; }).join('');
+
+  // Build table rows
+  var tbody = items.map(function(item) {
+    return '<tr>' + cfg.cols.map(function(c, i) {
+      var val = _imsVal(item, c.keys);
+      // Format currency columns
+      if (cfg.amountKeys.some(function(k) { return c.keys.includes(k); })) {
+        var n = parseFloat(val);
+        if (!isNaN(n) && n > 0) return '<td class="text-right">' + fmtRp(n) + '</td>';
+      }
+      // Format status columns
+      if (cfg.statusKeys.some(function(k) { return c.keys.includes(k); })) {
+        return '<td>' + _imsStatusBadge(val) + '</td>';
+      }
+      return '<td>' + (val === '-' ? '<span style="color:#94a3b8">—</span>' : val) + '</td>';
+    }).join('') + '</tr>';
+  }).join('');
+
+  // Status summary badges
+  var statusSummary = Object.keys(statusCounts).map(function(s) {
+    return '<span style="margin-right:8px">' + _imsStatusBadge(s) + ' <b>' + statusCounts[s] + '</b></span>';
+  }).join('');
+
+  return '<div class="page-title">' + icon + ' ' + title + ' <span style="font-size:0.65rem;background:#22c55e;color:#fff;border-radius:20px;padding:2px 10px;vertical-align:middle;font-weight:700;letter-spacing:0.5px">● LIVE</span></div>'
+
+    + '<div class="alert" style="background:#f0fdf4;border:1.5px solid #86efac;color:#166534;padding:10px 16px;border-radius:8px;margin-bottom:12px;font-size:0.85rem">'
+    + '📡 Data ini dibaca <b>langsung (real-time)</b> dari Firestore IMS (HR Legal App) — selalu terbaru. Terakhir dimuat: <b>' + lastUpdate + '</b>'
+    + (loadError ? ' &nbsp;⚠️ Error: ' + loadError : '')
+    + '</div>'
+
+    + '<div class="stats-row">'
+    + '<div class="stat-box"><div class="val">' + items.length + '</div><div class="lbl">Total Data</div></div>'
+    + (cfg.amountKeys.length > 0 ? '<div class="stat-box green"><div class="val" style="font-size:1rem">' + fmtRp(totalAmount) + '</div><div class="lbl">Total Nominal</div></div>' : '')
+    + '</div>'
+
+    + (statusSummary ? '<div style="margin-bottom:12px;padding:8px 12px;background:#f8fafc;border-radius:8px">Status: ' + statusSummary + '</div>' : '')
+
+    + '<div class="card">'
+    + '<div class="card-header"><h2>' + icon + ' Data ' + title + ' Live dari IMS</h2>'
+    + '<button class="btn btn-sm btn-outline" onclick="navigate(\'ims-live-' + colName.replace('hrd_','').replace('reimbursement','reimburse').replace('perjalanan_dinas','perjalanan') + '\')">🔄 Refresh</button>'
+    + '</div>'
+    + (items.length > 0
+        ? '<div class="table-wrap"><table><thead><tr>' + thead + '</tr></thead><tbody>' + tbody + '</tbody></table></div>'
+        : '<div class="empty-state"><span class="icon">' + icon + '</span><div>Belum ada data ' + title + ' di IMS</div></div>')
+    + '</div>'
+
+    + '<div class="card">'
+    + '<div class="card-header"><h2>🔗 Aksi</h2></div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    + '<a href="https://hr-legal-app.netlify.app" target="_blank" rel="noopener" class="btn btn-outline">🔗 Buka IMS (HR Legal App)</a>'
+    + '<button class="btn btn-outline" onclick="navigate(\'ims-live-dashboard\')">📡 Live Dashboard IMS</button>'
+    + '</div>'
+    + '</div>';
+}
+
+/**
+ * Render Live Dashboard — ringkasan semua data IMS secara real-time.
+ */
+async function renderIMSLiveDashboard() {
+  var sections = [
+    { col: 'hrd_karyawan',        icon: '👤', label: 'Karyawan',        route: 'ims-live-karyawan',   amountKeys: [] },
+    { col: 'hrd_penggajian',      icon: '💰', label: 'Penggajian',      route: 'ims-live-penggajian', amountKeys: ['gaji_pokok','total_gaji','total','net_gaji','nett','gaji'] },
+    { col: 'hrd_perjalanan_dinas',icon: '✈️', label: 'Perjalanan Dinas',route: 'ims-live-perjalanan', amountKeys: ['biaya','total_biaya','nominal','anggaran','total'] },
+    { col: 'hrd_insentif',        icon: '🏆', label: 'Insentif',        route: 'ims-live-insentif',   amountKeys: ['jumlah','nominal','total','amount'] },
+    { col: 'hrd_reimbursement',   icon: '📋', label: 'Reimbursement',   route: 'ims-live-reimburse',  amountKeys: ['jumlah','nominal','total','amount'] },
+    { col: 'hrd_kasbon',          icon: '💳', label: 'Kasbon & Loan',   route: 'ims-live-kasbon',     amountKeys: ['jumlah','nominal','total','amount'] },
+    { col: 'hrd_tunjangan',       icon: '🎁', label: 'Tunjangan',       route: 'ims-live-tunjangan',  amountKeys: ['jumlah','nominal','total','amount'] },
+    { col: 'hrd_overtime',        icon: '⏱️', label: 'Overtime',        route: 'ims-live-overtime',   amountKeys: ['total','total_bayar','nominal','amount'] },
+  ];
+
+  var results = await Promise.all(sections.map(function(s) {
+    return KDB.getAllIMS(s.col).then(function(items) {
+      var total = 0;
+      if (s.amountKeys.length > 0) {
+        items.forEach(function(item) {
+          var v = parseFloat(_imsVal(item, s.amountKeys));
+          if (!isNaN(v)) total += v;
+        });
+      }
+      // Count pending
+      var pending = items.filter(function(x) {
+        var st = String(x.status || '').toLowerCase();
+        return st.includes('pending') || st.includes('proses') || st.includes('menunggu') || st.includes('review');
+      }).length;
+      return { count: items.length, total: total, pending: pending };
+    }).catch(function() { return { count: 0, total: 0, pending: 0 }; });
+  }));
+
+  var now = new Date().toLocaleString('id-ID');
+
+  var cards = sections.map(function(s, i) {
+    var r = results[i];
+    var hasMoney = s.amountKeys.length > 0;
+    return '<div class="card" style="cursor:pointer;transition:box-shadow 0.15s" onclick="navigate(\'' + s.route + '\')">'
+      + '<div class="card-header" style="border-bottom:none;padding-bottom:4px"><h2 style="font-size:1rem">' + s.icon + ' ' + s.label + '</h2>'
+      + '<span style="font-size:0.72rem;background:#22c55e;color:#fff;border-radius:10px;padding:1px 8px;font-weight:700">● LIVE</span>'
+      + '</div>'
+      + '<div style="display:flex;gap:12px;align-items:flex-end;padding:0 16px 14px">'
+      + '<div><div style="font-size:1.9rem;font-weight:800;color:#1e293b">' + r.count + '</div><div style="font-size:0.72rem;color:#64748b">Total Record</div></div>'
+      + (hasMoney && r.total > 0 ? '<div><div style="font-size:1rem;font-weight:700;color:#0f766e">' + fmtRp(r.total) + '</div><div style="font-size:0.72rem;color:#64748b">Total Nominal</div></div>' : '')
+      + (r.pending > 0 ? '<div style="margin-left:auto"><span style="background:#fffbeb;color:#92400e;border-radius:10px;padding:3px 10px;font-size:0.78rem;font-weight:700">⏳ ' + r.pending + ' Pending</span></div>' : '')
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  return '<div class="page-title">📡 Live Dashboard IMS <span style="font-size:0.65rem;background:#22c55e;color:#fff;border-radius:20px;padding:2px 10px;vertical-align:middle;font-weight:700;letter-spacing:0.5px">● LIVE</span></div>'
+
+    + '<div class="alert" style="background:#f0fdf4;border:1.5px solid #86efac;color:#166534;padding:10px 16px;border-radius:8px;margin-bottom:16px;font-size:0.85rem">'
+    + '📡 Semua data dibaca <b>langsung real-time</b> dari Firestore IMS (HR Legal App — Firebase project yang sama). Terakhir dimuat: <b>' + now + '</b>'
+    + '</div>'
+
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:16px">'
+    + cards
+    + '</div>'
+
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
+    + '<a href="https://hr-legal-app.netlify.app" target="_blank" rel="noopener" class="btn btn-outline">🔗 Buka Aplikasi IMS</a>'
+    + '<button class="btn btn-outline" onclick="navigate(\'ims-live-dashboard\')">🔄 Refresh Dashboard</button>'
+    + '</div>';
+}
