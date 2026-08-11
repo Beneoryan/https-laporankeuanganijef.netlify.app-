@@ -10223,68 +10223,219 @@ function renderAllApprovalTable(data, type, chkClass) {
   }).join('');
 }
 
-function filterApprovalAll(val) {
-  ['tbl-all-permohonan', 'tbl-all-danamasuk'].forEach(function(id) {
-    document.querySelectorAll('#' + id + ' tbody tr').forEach(function(r) {
-      const s = r.dataset.status || '';
-      r.style.display = (!val || s.includes(val)) ? '' : 'none';
-    });
-  });
+function renderAdminApprovalList(allPD, allDM) {
+  const combined = allPD.map(x => ({ ...x, _type: 'PD' }))
+    .concat(allDM.map(x => ({ ...x, _type: 'DM' })));
+
+  combined.sort((a,b) => (b.tanggal || '').localeCompare(a.tanggal || ''));
+
+  return combined.map(item => {
+    const nominal = item.nominal || item.jumlah || item.total || 0;
+    const sub = item.namaPemohon || item.sumber || '-';
+    const desc = item.keperluan || item.keterangan || '-';
+    return `
+      <tr data-status="${item.status}">
+        <td><span class="badge ${item._type==='PD'?'badge-warning':'badge-success'}" style="min-width:35px">${item._type}</span></td>
+        <td>${fmtDate(item.tanggal)}</td>
+        <td class="fw-bold">${sub}</td>
+        <td class="fw-bold">${fmtRp(nominal)}</td>
+        <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${desc}</td>
+        <td>${statusBadge(item.status)}</td>
+        <td>
+          <button class="btn btn-xs btn-outline" onclick="detailItem('${item._type==='PD'?'permohonan':'danamasuk'}', '${item.id}')">View</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderApproverConfig(approvers) {
+  return [1, 2, 3].map(layer => {
+    const app = approvers.find(a => a.layer === layer) || {};
+    return `
+      <div class="card" style="padding:18px; margin-bottom:0; background:#f8fafc; border:1.5px solid #e2e8f0">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+            <div class="fw-bold text-blue" style="font-size:1.1rem">Layer ${layer}</div>
+            <span style="font-size:1.4rem">🛡️</span>
+        </div>
+        <div class="fg" style="margin-bottom:10px">
+          <label>Nama Lengkap</label>
+          <input type="text" id="appr-nama-${layer}" value="${app.nama || ''}" style="border-radius:10px">
+        </div>
+        <div class="fg" style="margin-bottom:10px">
+          <label>Email Terdaftar</label>
+          <input type="email" id="appr-email-${layer}" value="${app.email || ''}" style="border-radius:10px">
+        </div>
+        <div class="fg">
+          <label>Minimal Role</label>
+          <select id="appr-role-${layer}" style="border-radius:10px">
+            <option value="leader" ${app.role === 'leader' ? 'selected' : ''}>Leader</option>
+            <option value="admin" ${app.role === 'admin' ? 'selected' : ''}>Admin</option>
+            <option value="superadmin" ${app.role === 'superadmin' ? 'selected' : ''}>Superadmin</option>
+            <option value="bod" ${app.role === 'bod' ? 'selected' : ''}>BOD</option>
+          </select>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 async function approveItem(col, id) {
-  const list = await KDB.getAll(col);
-  const item = list.find(function(x){ return x.id === id; });
-  if (!item) return;
-  const currentLayer = getCurrentLayer(item.status);
-  if (!currentLayer) { showAlert('Item ini tidak dalam status pending!', 'warning'); return; }
-  const catatan = prompt('Catatan approval Layer ' + currentLayer + ' (opsional):') || '';
-  const approvers = item.approvers || await getApprovers();
-  const totalLayers = approvers.length;
-  const log = (item.approvalLog || []).concat([{ layer: currentLayer, action: 'approve', by: KU.username, nama: KU.nama, at: new Date().toISOString(), catatan: catatan }]);
-  const newStatus = currentLayer >= totalLayers ? STATUS.APPROVED : 'Pending Layer ' + (currentLayer + 1);
-  await KDB.save(col, id, Object.assign({}, item, { status: newStatus, approvalLog: log, lastUpdatedAt: new Date().toISOString() }));
+  if (!confirm('Approve item ini?')) return;
+  showLoading(true);
+  try {
+      const item = await KDB.get(col, id);
+      if (!item) return;
 
-  if (newStatus === STATUS.APPROVED) {
-    if (col === 'permohonan') {
-      await buatJurnalDariPermohonan(id);
-    } else if (col === 'danamasuk') {
-      await buatJurnalDariDanaMasuk(id);
-    }
-    kirimNotifikasi('✅ Approved Final!', (item.namaPemohon||item.sumber||id) + ' — ' + fmtRp(item.nominal||0) + ' sudah Approved Final', '');
-    kirimEmailNotifikasi('Approved Final', 'Transaksi: ' + (item.namaPemohon||item.sumber||id) + '\nNominal: ' + fmtRp(item.nominal||0) + '\nDisetujui oleh: ' + KU.nama + '\nStatus: APPROVED FINAL', 'approved_final');
-    // Re-read item to check if journal was created or deferred
-    var updatedList = await KDB.getAll(col);
-    var updatedItem = updatedList.find(function(x){ return x.id === id; });
-    if (updatedItem && updatedItem.jurnalId) {
-      showAlert('APPROVED FINAL! Jurnal akuntansi dibuat otomatis.');
-    } else {
-      showAlert('APPROVED FINAL! Jurnal akan dibuat otomatis saat jatuh tempo tiba.');
-    }
-  } else {
-    kirimNotifikasi('✅ Layer ' + currentLayer + ' Approved', (item.namaPemohon||item.sumber||id) + ' diteruskan ke Layer ' + (currentLayer+1), '');
-    kirimEmailNotifikasi('Update Approval Layer ' + currentLayer, 'Transaksi: ' + (item.namaPemohon||item.sumber||id) + '\nNominal: ' + fmtRp(item.nominal||0) + '\nDisetujui Layer ' + currentLayer + ' oleh: ' + KU.nama + '\nDiteruskan ke Layer ' + (currentLayer+1), 'approval_layer');
-    showAlert('Layer ' + currentLayer + ' approved! Diteruskan ke Layer ' + (currentLayer + 1) + '.');
+      const approvers = await getApprovers();
+      const currentLayer = getCurrentLayer(item.status);
+      const nextLayer = currentLayer + 1;
+      const hasNext = approvers.find(a => a.layer === nextLayer);
+
+      item.status = hasNext ? 'Pending Layer ' + nextLayer : STATUS.APPROVED;
+      if (!item.approvalLog) item.approvalLog = [];
+      item.approvalLog.push({ date: new Date().toISOString(), by: KU.username, action: 'approve', layer: currentLayer });
+
+      await KDB.save(col, id, item);
+      showAlert('Item berhasil disetujui.', 'success');
+      renderSection('dana-approval');
+  } catch(e) {
+      showAlert('Gagal menyetujui item: ' + e.message, 'danger');
   }
-  navigate('dana-approval');
+  showLoading(false);
 }
 
 async function rejectItem(col, id) {
-  const list = await KDB.getAll(col);
-  const item = list.find(function(x){ return x.id === id; });
-  if (!item) return;
-  const currentLayer = getCurrentLayer(item.status);
-  if (!currentLayer) { showAlert('Item ini tidak dalam status pending!', 'warning'); return; }
-  const catatan = prompt('Alasan penolakan (wajib diisi):');
-  if (!catatan || !catatan.trim()) { showAlert('Alasan penolakan wajib diisi!', 'danger'); return; }
-  const log = (item.approvalLog || []).concat([{ layer: currentLayer, action: 'reject', by: KU.username, nama: KU.nama, at: new Date().toISOString(), catatan: catatan }]);
-  const newStatus = 'Rejected Layer ' + currentLayer;
-  await KDB.save(col, id, Object.assign({}, item, { status: newStatus, approvalLog: log, lastUpdatedAt: new Date().toISOString() }));
-  kirimNotifikasi('❌ Ditolak Layer ' + currentLayer, (item.namaPemohon||item.sumber||id) + ' ditolak oleh ' + KU.nama + '. Alasan: ' + catatan, '');
-  kirimEmailNotifikasi('Transaksi Ditolak Layer ' + currentLayer, 'Transaksi: ' + (item.namaPemohon||item.sumber||id) + '\nNominal: ' + fmtRp(item.nominal||0) + '\nDitolak oleh: ' + KU.nama + '\nAlasan: ' + catatan, 'rejected');
-  showAlert('Ditolak di Layer ' + currentLayer + '. Pemohon perlu merevisi dan mengajukan ulang.');
-  navigate('dana-approval');
+  const reason = prompt('Alasan penolakan:');
+  if (reason === null) return;
+  if (!reason.trim()) return alert('Alasan penolakan wajib diisi!');
+
+  showLoading(true);
+  try {
+      const item = await KDB.get(col, id);
+      if (!item) return;
+
+      const currentLayer = getCurrentLayer(item.status);
+      item.status = 'Rejected Layer ' + currentLayer;
+      if (!item.approvalLog) item.approvalLog = [];
+      item.approvalLog.push({ date: new Date().toISOString(), by: KU.username, action: 'reject', reason: reason, layer: currentLayer });
+
+      await KDB.save(col, id, item);
+      showAlert('Item telah ditolak.', 'warning');
+      renderSection('dana-approval');
+  } catch(e) {
+      showAlert('Gagal menolak item: ' + e.message, 'danger');
+  }
+  showLoading(false);
 }
+
+async function approveSemuaItem(col) {
+  const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked[data-id]');
+  if (checkboxes.length === 0) return alert('Pilih minimal satu item!');
+
+  if (!confirm('Setujui ' + checkboxes.length + ' item terpilih?')) return;
+
+  showLoading(true);
+  try {
+      const approvers = await getApprovers();
+      for (const chk of checkboxes) {
+          const id = chk.dataset.id;
+          const item = await KDB.get(col, id);
+          if (item) {
+              const currentLayer = getCurrentLayer(item.status);
+              const nextLayer = currentLayer + 1;
+              const hasNext = approvers.find(a => a.layer === nextLayer);
+
+              item.status = hasNext ? 'Pending Layer ' + nextLayer : STATUS.APPROVED;
+              if (!item.approvalLog) item.approvalLog = [];
+              item.approvalLog.push({ date: new Date().toISOString(), by: KU.username, action: 'approve', layer: currentLayer, note: 'Batch' });
+              await KDB.save(col, id, item);
+          }
+      }
+      showAlert('Berhasil menyetujui ' + checkboxes.length + ' item.', 'success');
+      renderSection('dana-approval');
+  } catch(e) {
+      showAlert('Gagal menyetujui batch: ' + e.message, 'danger');
+  }
+  showLoading(false);
+}
+
+async function rejectSemuaItem(col) {
+  const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked[data-id]');
+  if (checkboxes.length === 0) return alert('Pilih minimal satu item!');
+
+  const reason = prompt('Alasan penolakan massal:');
+  if (reason === null || !reason.trim()) return;
+
+  if (!confirm('Tolak ' + checkboxes.length + ' item terpilih?')) return;
+
+  showLoading(true);
+  try {
+      for (const chk of checkboxes) {
+          const id = chk.dataset.id;
+          const item = await KDB.get(col, id);
+          if (item) {
+              const currentLayer = getCurrentLayer(item.status);
+              item.status = 'Rejected Layer ' + currentLayer;
+              if (!item.approvalLog) item.approvalLog = [];
+              item.approvalLog.push({ date: new Date().toISOString(), by: KU.username, action: 'reject', reason: reason, layer: currentLayer });
+              await KDB.save(col, id, item);
+          }
+      }
+      showAlert('Berhasil menolak ' + checkboxes.length + ' item.', 'warning');
+      renderSection('dana-approval');
+  } catch(e) {
+      showAlert('Gagal menolak batch: ' + e.message, 'danger');
+  }
+  showLoading(false);
+}
+
+async function simpanApprovers() {
+  const list = [];
+  try {
+      for (let i = 1; i <= 3; i++) {
+        list.push({
+          layer: i,
+          nama: document.getElementById('appr-nama-' + i).value,
+          email: document.getElementById('appr-email-' + i).value,
+          role: document.getElementById('appr-role-' + i).value
+        });
+      }
+      await KDB.saveSetting('approvers', list);
+      showAlert('Konfigurasi approver berhasil diperbarui.', 'success');
+  } catch(e) {
+      alert('Gagal menyimpan: ' + e.message);
+  }
+}
+
+function filterApprovalAll(status) {
+  const rows = document.querySelectorAll('#admin-approval-all tr');
+  rows.forEach(row => {
+    const s = row.dataset.status || '';
+    if (status === 'Semua') row.style.display = '';
+    else if (status === 'Pending') row.style.display = s.includes('Pending') ? '' : 'none';
+    else if (status === 'Rejected') row.style.display = s.includes('Rejected') ? '' : 'none';
+    else row.style.display = (s === status) ? '' : 'none';
+  });
+}
+
+function switchTab(btn, tabId) {
+  const parent = btn.parentElement;
+  parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const contentParent = parent.parentElement;
+  contentParent.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  const target = document.getElementById(tabId);
+  if (target) target.classList.add('active');
+}
+
+function detailItem(type, id) {
+    if (type === 'permohonan' || type === 'PD') detailPermohonan(id);
+    else if (type === 'danamasuk' || type === 'DM') detailDanaMasuk(id);
+    else alert('Detail view not found for type: ' + type);
+}
+
 
 async function undoApproval(col, id) {
   if (!confirm('Undo approval item ini? Jurnal otomatis yang terkait akan dihapus dan status dikembalikan ke Pending Layer 1 untuk approval ulang.')) return;
