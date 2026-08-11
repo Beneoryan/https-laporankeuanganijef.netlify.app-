@@ -822,7 +822,17 @@ async function initUsers() {
           const u = systemUsers[i];
           const docId = String(u.username).toLowerCase();
           const snap = await kfs.getDoc(kfs.doc(kdb, 'k_users', docId));
-          if (!snap.exists()) {
+
+          // Force update core system user info (nama, role, email) even if exists
+          // But keep password if user already has one to avoid forced resets
+          if (snap.exists()) {
+            const current = snap.data();
+            await kfs.updateDoc(kfs.doc(kdb, 'k_users', docId), {
+              nama: u.nama,
+              role: u.role,
+              email: u.email
+            });
+          } else {
             await kfs.setDoc(kfs.doc(kdb, 'k_users', docId), u);
           }
         } catch(e) { console.warn('Firebase user sync:', systemUsers[i].username, e.message); }
@@ -1678,7 +1688,7 @@ function getKasBankAccounts(akunList) {
 // ===== DASHBOARD =====
 async function renderDashboard() {
   if (KU.role === 'nanda') return renderPortalAset();
-  if (KU.role === 'viewer' || KU.role === 'leader') return renderDashboardApprover();
+  if (KU.role === 'viewer' || KU.role === 'leader' || KU.role === 'bod') return renderDashboardApprover();
   const jurnal = await KDB.getAll('jurnal');
   const invoices = await KDB.getAll('invoice');
   const po = await KDB.getAll('po');
