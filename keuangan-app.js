@@ -792,7 +792,9 @@ async function initUsers() {
   const BOD = { username: 'bod', password: 'bod2026', role: 'bod', nama: 'Board of Directors', email: '' };
   const IRSAN = { username: 'irsan', password: 'irsan2026', role: 'leader', nama: 'Irsan', email: 'irsanijefcorp@gmail.com' };
   const RYAN = { username: 'ryanbenoe', password: 'ryanbenoe21', role: 'superadmin', nama: 'Ryan Benoe', email: 'benoeryan21@gmail.com' };
-  const systemUsers = [DEFAULT, NANDA, BOD, IRSAN, RYAN];
+  const ANA = { username: 'anaijefcorp', password: 'ana2026', role: 'superadmin', nama: 'Ana', email: 'anaijefcorp@gmail.com' };
+  const HOKAGE = { username: 'hokage', password: 'hokage2026', role: 'admin', nama: 'Hokage', email: 'hokageijefcorp@gmail.com' };
+  const systemUsers = [DEFAULT, NANDA, BOD, IRSAN, RYAN, ANA, HOKAGE];
 
   // Update localStorage first (fast)
   const local = _klget('kusers', []);
@@ -802,7 +804,8 @@ async function initUsers() {
     if (idx === -1) {
       updated.push(su);
     } else {
-      updated[idx].password = su.password;
+      // Don't overwrite existing password to prevent frustrating resets
+      if (!updated[idx].password) updated[idx].password = su.password;
       updated[idx].role = su.role;
       updated[idx].nama = su.nama;
       updated[idx].email = su.email;
@@ -818,7 +821,10 @@ async function initUsers() {
         try {
           const u = systemUsers[i];
           const docId = String(u.username).toLowerCase();
-          await kfs.setDoc(kfs.doc(kdb, 'k_users', docId), u);
+          const snap = await kfs.getDoc(kfs.doc(kdb, 'k_users', docId));
+          if (!snap.exists()) {
+            await kfs.setDoc(kfs.doc(kdb, 'k_users', docId), u);
+          }
         } catch(e) { console.warn('Firebase user sync:', systemUsers[i].username, e.message); }
       }
     })();
@@ -10606,16 +10612,6 @@ function filterApprovalAll(status) {
   });
 }
 
-function switchTab(btn, tabId) {
-  const parent = btn.parentElement;
-  parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-
-  const contentParent = parent.parentElement;
-  contentParent.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  const target = document.getElementById(tabId);
-  if (target) target.classList.add('active');
-}
 
 function detailItem(type, id) {
     if (type === 'permohonan' || type === 'PD') detailPermohonan(id);
@@ -17448,9 +17444,7 @@ async function renderIMSFinance() {
     + '</div>'
     + (KU.role !== 'bod' ? '<div class="card">'
     + '  <div class="card-header"><h2>Semua Menu Sinkron HR-Legal</h2></div>'
-    + '  <div class="responsive-grid-2">' + syncMenuCards + '</div></div>' : '');
-}
-    + '</div>'
+    + '  <div class="responsive-grid-2">' + syncMenuCards + '</div></div>' : '')
     + '<div class="card">'
     + '  <div class="card-header"><h2>Ringkasan Aktivitas IMS</h2></div>'
     + '  <div class="responsive-grid-2">'
