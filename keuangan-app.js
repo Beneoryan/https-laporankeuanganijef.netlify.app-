@@ -494,6 +494,20 @@ function genId(prefix) {
   return prefix + '-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substr(2, 4).toUpperCase();
 }
 
+function toComparableTimestamp(val) {
+  if (val === null || val === undefined || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  if (val instanceof Date) return isNaN(val.getTime()) ? 0 : val.getTime();
+  var parsed = Date.parse(val);
+  if (!isNaN(parsed)) return parsed;
+  var asNum = Number(val);
+  return isNaN(asNum) ? 0 : asNum;
+}
+
+function sortByCreatedAtDesc(a, b) {
+  return toComparableTimestamp(b && b.createdAt) - toComparableTimestamp(a && a.createdAt);
+}
+
 function openModal(html, title) {
   resetModalLayout();
   document.getElementById('modal-content').innerHTML = '<h3>' + title + '</h3>' + html;
@@ -754,6 +768,9 @@ window.addEventListener('load', async function() {
     if (fbResult === 'timeout') {
       console.warn('[System] Firebase init timed out. Operating in Offline/Local Mode.');
       window._kOfflineMode = true;
+      setTimeout(function() {
+        if (typeof ensureKFirebaseReady === 'function') ensureKFirebaseReady();
+      }, 1500);
     }
 
     await initUsers();
@@ -1355,7 +1372,11 @@ async function getAkun() {
 
 async function getAkunOptions(filter) {
   const akun = await getAkun();
-  const filtered = filter ? akun.filter(function(a) { return a.kategori.includes(filter) || a.tipe === filter; }) : akun;
+  const filtered = filter ? akun.filter(function(a) {
+    var kategori = (a && a.kategori) ? String(a.kategori) : '';
+    var tipe = (a && a.tipe) ? String(a.tipe) : '';
+    return kategori.includes(filter) || tipe === filter;
+  }) : akun;
   return filtered.map(function(a) { return '<option value="' + a.kode + '">' + a.kode + ' - ' + a.nama + '</option>'; }).join('');
 }
 
@@ -9501,7 +9522,7 @@ async function renderPermohonanDana() {
   const list = await KDB.getAll('permohonan');
   const approvers = await getApprovers();
   const myList = list.filter(function(x){ return x.pemohon === KU.username || hasRole('leader'); });
-  const sorted = myList.slice().sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
+  const sorted = myList.slice().sort(sortByCreatedAtDesc);
   const myLayer = (approvers.find(function(a){ return a.email === KU.email || a.role === KU.role; }) || {}).layer;
   const pendingForMe = list.filter(function(x){ return x.status === 'Pending Layer ' + myLayer; }).length;
 
@@ -9795,7 +9816,7 @@ async function buatJurnalDariPermohonan(id) {
 // ===== DANA MASUK =====
 async function renderDanaMasuk() {
   const list = await KDB.getAll('danamasuk');
-  const sorted = list.slice().sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
+  const sorted = list.slice().sort(sortByCreatedAtDesc);
   const approvers = await getApprovers();
   const myLayer = (approvers.find(function(a){ return a.email === KU.email || a.role === KU.role; }) || {}).layer;
   const pendingForMe = list.filter(function(x){ return x.status === 'Pending Layer ' + myLayer; }).length;
@@ -10150,7 +10171,7 @@ async function renderApprovalCenter() {
 }
 
 function renderAllApprovalTable(list, col) {
-  const sorted = list.slice().sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
+  const sorted = list.slice().sort(sortByCreatedAtDesc);
   if (!sorted.length) return '<div class="empty-state"><span class="icon">📋</span>Belum ada data</div>';
   const isPD = col === 'permohonan';
   const rows = sorted.map(function(x) {
@@ -13554,7 +13575,7 @@ async function renderPortalAset() {
       + '</td></tr>';
   }).join('');
 
-  const pengadaanRows = pdPortal.slice().sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); }).map(function(p) {
+  const pengadaanRows = pdPortal.slice().sort(sortByCreatedAtDesc).map(function(p) {
     return '<tr>'
       + '<td>' + fmtDate(p.tanggal) + '</td>'
       + '<td class="fw-bold" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.keterangan||'-') + '</td>'
