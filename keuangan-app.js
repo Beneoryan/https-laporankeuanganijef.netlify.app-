@@ -3680,7 +3680,7 @@ async function reviewOutlierDetail(jurnalId) {
     + '<b>Oleh:</b> ' + (j.createdBy||'-') + '<br>'
     + '<b>Total Debit:</b> <span class="text-green fw-bold">' + fmtRp(j.totalDebit||0) + '</span> | <b>Total Kredit:</b> <span class="text-red fw-bold">' + fmtRp(j.totalKredit||0) + '</span>'
     + '</div>'
-    + '<table style="width:100%;font-size:0.82rem"><thead><tr style="background:#1a237e;color:white"><th>Akun</th><th>Keterangan</th><th>Debit</th><th>Kredit</th></tr></thead><tbody>' + linesHtml + '</tbody></table>'
+    + '<table style="width:100%;font-size:0.82rem"><thead><tr class="bg-blue"><th>Akun</th><th>Keterangan</th><th>Debit</th><th>Kredit</th></tr></thead><tbody>' + linesHtml + '</tbody></table>'
     + '<div style="margin-top:14px;display:flex;gap:8px;justify-content:center">'
     + '<button class="btn btn-success" onclick="abaikanOutlier(\'' + (j.tanggal||'') + '_' + (j.noRef||j.id) + '_' + (j.totalDebit||0) + '\');closeModalDirect()">✅ Sudah Benar</button>'
     + '<button class="btn btn-warning" onclick="editJurnal(\'' + j.id + '\');closeModalDirect()">✏️ Edit Jurnal</button>'
@@ -6388,7 +6388,7 @@ async function renderNeraca() {
     + '<tr style="background:#e3f2fd"><td><b>Total Aset Tetap</b></td><td class="text-right fw-bold">' + fmtRp(totalAsetTetap) + '</td></tr>'
     + '<tr style="background:#f5f5ff"><td colspan="2"><i>Aset Lain-lain</i></td></tr>' + renderGroup('Aset Lain-lain')
     + '<tr style="background:#e3f2fd"><td><b>Total Aset Lain-lain</b></td><td class="text-right fw-bold">' + fmtRp(totalAsetLainlain) + '</td></tr>'
-    + '<tr style="background:#1a237e;color:white"><td><b>TOTAL ASET</b></td><td class="text-right fw-bold">' + fmtRp(totalAset) + '</td></tr>'
+    + '<tr class="bg-blue"><td><b>TOTAL ASET</b></td><td class="text-right fw-bold">' + fmtRp(totalAset) + '</td></tr>'
     + '</tbody></table>'
     + '<table><tbody><tr style="background:#e8eaf6"><td colspan="2"><b>KEWAJIBAN & EKUITAS</b></td></tr>'
     + '<tr style="background:#f5f5ff"><td colspan="2"><i>Kewajiban Lancar</i></td></tr>' + renderGroup('Kewajiban Lancar')
@@ -6398,7 +6398,7 @@ async function renderNeraca() {
     + '<tr style="background:#f5f5ff"><td colspan="2"><i>Ekuitas</i></td></tr>' + renderGroup('Ekuitas')
     + '<tr><td style="padding-left:20px"><i>Laba (Rugi) Periode Berjalan</i></td><td class="text-right ' + (labaBersihPeriode>=0?'text-green':'text-red') + '">' + fmtRp(labaBersihPeriode) + '</td></tr>'
     + '<tr style="background:#e8f5e9"><td><b>Total Ekuitas</b></td><td class="text-right fw-bold text-green">' + fmtRp(totalEkuitas) + '</td></tr>'
-    + '<tr style="background:#1a237e;color:white"><td><b>TOTAL KEW + EKUITAS</b></td><td class="text-right fw-bold">' + fmtRp(totalKewEkuitas) + '</td></tr>'
+    + '<tr class="bg-blue"><td><b>TOTAL KEW + EKUITAS</b></td><td class="text-right fw-bold">' + fmtRp(totalKewEkuitas) + '</td></tr>'
     + '</tbody></table></div>'
     + '<div class="mt-12 ' + (bal?'alert alert-success':'alert alert-danger') + '">' + (bal ? '✅ Neraca Balance' : '⚠️ Neraca tidak balance! Selisih: ' + fmtRp(Math.abs(totalAset-totalKewEkuitas))) + '</div>'
     + '</div>';
@@ -6474,7 +6474,7 @@ async function renderNeracaLajur() {
       + '<td class="text-right">' + (beb ? fmtRp(beb) : '-') + '</td>'
       + '</tr>';
   }).join('');
-  var totalRow = '<tr style="background:#1a237e;color:white;font-weight:700"><td colspan="2">TOTAL</td>'
+  var totalRow = '<tr class="bg-blue" style="font-weight:700"><td colspan="2">TOTAL</td>'
     + '<td class="text-right">' + fmtRp(totD) + '</td><td class="text-right">' + fmtRp(totK) + '</td>'
     + '<td class="text-right">' + fmtRp(totAdjD) + '</td><td class="text-right">' + fmtRp(totAdjK) + '</td>'
     + '<td class="text-right">' + fmtRp(totND) + '</td><td class="text-right">' + fmtRp(totNK) + '</td>'
@@ -6586,7 +6586,7 @@ async function renderSaldoHariIni() {
     + '<div class="alert alert-info">📅 ' + today_str + '</div>'
     + '<div class="card"><div class="card-header"><h2>Saldo Akun</h2><div style="display:flex;gap:8px"><button class="btn btn-sm btn-info no-print" onclick="window.print()">Print</button>' + (KU.role === 'bod' ? '' : '<button class="btn btn-sm btn-warning no-print" onclick="analisaSelisihSaldo()">🔍 Analisa Selisih</button>') + '</div></div>'
     + '<div class="table-wrap"><table><thead><tr><th>Kode</th><th>Nama Akun</th><th class="text-right">Saldo Sistem</th><th class="text-right">Saldo Aktual</th><th class="text-right">Selisih</th><th>Status</th></tr></thead><tbody>' + rows
-    + '<tr style="background:#1a237e;color:white"><td colspan="2"><b>TOTAL</b></td><td class="text-right fw-bold">' + fmtRp(totalFiltered) + '</td><td colspan="3"></td></tr>'
+    + '<tr class="bg-blue"><td colspan="2"><b>TOTAL</b></td><td class="text-right fw-bold">' + fmtRp(totalFiltered) + '</td><td colspan="3"></td></tr>'
     + '</tbody></table></div></div>';
 }
 
@@ -7788,7 +7788,7 @@ async function renderPettyCash() {
     + '<div class="fg"><label>Nama PIC</label><input id="pc-pic" value="' + (KU.nama||KU.username) + '" placeholder="Nama PIC"></div>'
     + '<div class="fg full"><label>Keterangan</label><input id="pc-ket" placeholder="Deskripsi pengeluaran petty cash"></div>'
     + '</div>'
-    + '<div style="margin-top:12px"><table style="width:100%;font-size:0.83rem"><thead><tr style="background:#1a237e;color:white"><th>Akun</th><th>Keterangan</th><th>Debit (Rp)</th><th>Kredit (Rp)</th></tr></thead>'
+    + '<div style="margin-top:12px"><table style="width:100%;font-size:0.83rem"><thead><tr class="bg-blue"><th>Akun</th><th>Keterangan</th><th>Debit (Rp)</th><th>Kredit (Rp)</th></tr></thead>'
     + '<tbody id="pc-lines-body">'
     + '<tr><td><select class="pc-akun" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:5px;font-size:0.82rem"><option value="">-- Pilih Akun --</option>' + akunOpts + '</select></td>'
     + '<td><input class="pc-line-ket" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:5px" placeholder="Keterangan baris"></td>'
@@ -11083,7 +11083,7 @@ function renderActionConfirmation(action) {
       + 'Tanggal: ' + (action.tanggal||today()) + '<br>'
       + 'Keterangan: ' + (action.keterangan||'-') + '<br>'
       + '<table style="width:100%;font-size:0.82rem;margin-top:6px;border-collapse:collapse">'
-      + '<tr style="background:#1a237e;color:white"><th style="padding:4px 8px">Akun</th><th style="padding:4px 8px">Ket</th><th style="padding:4px 8px">Debit</th><th style="padding:4px 8px">Kredit</th></tr>';
+      + '<tr class="bg-blue"><th style="padding:4px 8px;color:white !important">Akun</th><th style="padding:4px 8px;color:white !important">Ket</th><th style="padding:4px 8px;color:white !important">Debit</th><th style="padding:4px 8px;color:white !important">Kredit</th></tr>';
     (action.lines||[]).forEach(function(l) {
       html += '<tr style="border-bottom:1px solid #ddd"><td style="padding:4px 8px">' + (l.akun||'-') + '</td><td style="padding:4px 8px">' + (l.ket||'-') + '</td><td style="padding:4px 8px">' + fmtRp(l.debit||0) + '</td><td style="padding:4px 8px">' + fmtRp(l.kredit||0) + '</td></tr>';
     });
