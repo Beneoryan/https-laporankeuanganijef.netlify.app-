@@ -10285,21 +10285,41 @@ async function approveItem(col, id) {
   showLoading(true);
   try {
       const item = await KDB.get(col, id);
-      if (!item) return;
+      if (!item) {
+          throw new Error('Data tidak ditemukan di database.');
+      }
 
       const approvers = await getApprovers();
       const currentLayer = getCurrentLayer(item.status);
       const nextLayer = currentLayer + 1;
       const hasNext = approvers.find(a => a.layer === nextLayer);
 
+      const oldStatus = item.status;
       item.status = hasNext ? 'Pending Layer ' + nextLayer : STATUS.APPROVED;
+
       if (!item.approvalLog) item.approvalLog = [];
-      item.approvalLog.push({ date: new Date().toISOString(), by: KU.username, action: 'approve', layer: currentLayer });
+      item.approvalLog.push({
+          date: new Date().toISOString(),
+          by: KU.username,
+          nama: KU.nama,
+          action: 'approve',
+          layer: currentLayer,
+          from: oldStatus,
+          to: item.status
+      });
 
       await KDB.save(col, id, item);
+
+      // Jika sudah approved final, buat jurnal otomatis
+      if (item.status === STATUS.APPROVED) {
+          if (col === 'permohonan') await buatJurnalDariPermohonan(id);
+          else if (col === 'danamasuk') await buatJurnalDariDanaMasuk(id);
+      }
+
       showAlert('Item berhasil disetujui.', 'success');
       renderSection('dana-approval');
   } catch(e) {
+      console.error('Approve error:', e);
       showAlert('Gagal menyetujui item: ' + e.message, 'danger');
   }
   showLoading(false);
@@ -10313,56 +10333,100 @@ async function rejectItem(col, id) {
   showLoading(true);
   try {
       const item = await KDB.get(col, id);
-      if (!item) return;
+      if (!item) throw new Error('Data tidak ditemukan.');
 
       const currentLayer = getCurrentLayer(item.status);
+      const oldStatus = item.status;
       item.status = 'Rejected Layer ' + currentLayer;
+
       if (!item.approvalLog) item.approvalLog = [];
-      item.approvalLog.push({ date: new Date().toISOString(), by: KU.username, action: 'reject', reason: reason, layer: currentLayer });
+      item.approvalLog.push({
+          date: new Date().toISOString(),
+          by: KU.username,
+          nama: KU.nama,
+          action: 'reject',
+          reason: reason,
+          layer: currentLayer,
+          from: oldStatus,
+          to: item.status
+      });
 
       await KDB.save(col, id, item);
       showAlert('Item telah ditolak.', 'warning');
       renderSection('dana-approval');
   } catch(e) {
+      console.error('Reject error:', e);
       showAlert('Gagal menolak item: ' + e.message, 'danger');
   }
   showLoading(false);
 }
 
 async function approveSemuaItem(col) {
-  const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked[data-id]');
-  if (checkboxes.length === 0) return alert('Pilih minimal satu item!');
+  const selector = col === 'permohonan' ? '.chk-pd:checked' : '.chk-dm:checked';
+  const checkboxes = document.querySelectorAll(selector);
+
+  if (checkboxes.length === 0) return alert('Pilih minimal satu item dari tabel!');
 
   if (!confirm('Setujui ' + checkboxes.length + ' item terpilih?')) return;
 
   showLoading(true);
+  let successCount = 0;
+  let errorCount = 0;
+
   try {
       const approvers = await getApprovers();
-      for (const chk of checkboxes) {
+      for (let i = 0; i < checkboxes.length; i++) {
+          const chk = checkboxes[i];
           const id = chk.dataset.id;
-          const item = await KDB.get(col, id);
-          if (item) {
-              const currentLayer = getCurrentLayer(item.status);
-              const nextLayer = currentLayer + 1;
-              const hasNext = approvers.find(a => a.layer === nextLayer);
+          try {
+              const item = await KDB.get(col, id);
+              if (item) {
+                  const currentLayer = getCurrentLayer(item.status);
+                  const nextLayer = currentLayer + 1;
+                  const hasNext = approvers.find(a => a.layer === nextLayer);
 
-              item.status = hasNext ? 'Pending Layer ' + nextLayer : STATUS.APPROVED;
-              if (!item.approvalLog) item.approvalLog = [];
-              item.approvalLog.push({ date: new Date().toISOString(), by: KU.username, action: 'approve', layer: currentLayer, note: 'Batch' });
-              await KDB.save(col, id, item);
+                  item.status = hasNext ? 'Pending Layer ' + nextLayer : STATUS.APPROVED;
+                  if (!item.approvalLog) item.approvalLog = [];
+                  item.approvalLog.push({
+                      date: new Date().toISOString(),
+                      by: KU.username,
+                      nama: KU.nama,
+                      action: 'approve',
+                      layer: currentLayer,
+                      note: 'Batch Approval'
+                  });
+
+                  await KDB.save(col, id, item);
+
+                  if (item.status === STATUS.APPROVED) {
+                      if (col === 'permohonan') await buatJurnalDariPermohonan(id);
+                      else if (col === 'danamasuk') await buatJurnalDariDanaMasuk(id);
+                  }
+                  successCount++;
+              }
+          } catch(err) {
+              console.error('Error approving item ' + id, err);
+              errorCount++;
           }
       }
-      showAlert('Berhasil menyetujui ' + checkboxes.length + ' item.', 'success');
+
+      if (errorCount > 0) {
+          showAlert('Berhasil: ' + successCount + ', Gagal: ' + errorCount, 'warning');
+      } else {
+          showAlert('Berhasil menyetujui ' + successCount + ' item.', 'success');
+      }
       renderSection('dana-approval');
   } catch(e) {
-      showAlert('Gagal menyetujui batch: ' + e.message, 'danger');
+      showAlert('Gagal memproses batch: ' + e.message, 'danger');
   }
   showLoading(false);
 }
 
 async function rejectSemuaItem(col) {
-  const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked[data-id]');
-  if (checkboxes.length === 0) return alert('Pilih minimal satu item!');
+  const selector = col === 'permohonan' ? '.chk-pd:checked' : '.chk-dm:checked';
+  const checkboxes = document.querySelectorAll(selector);
+
+  if (checkboxes.length === 0) return alert('Pilih minimal satu item dari tabel!');
 
   const reason = prompt('Alasan penolakan massal:');
   if (reason === null || !reason.trim()) return;
@@ -10370,24 +10434,117 @@ async function rejectSemuaItem(col) {
   if (!confirm('Tolak ' + checkboxes.length + ' item terpilih?')) return;
 
   showLoading(true);
+  let successCount = 0;
+  let errorCount = 0;
+
   try {
-      for (const chk of checkboxes) {
+      for (let i = 0; i < checkboxes.length; i++) {
+          const chk = checkboxes[i];
           const id = chk.dataset.id;
-          const item = await KDB.get(col, id);
-          if (item) {
-              const currentLayer = getCurrentLayer(item.status);
-              item.status = 'Rejected Layer ' + currentLayer;
-              if (!item.approvalLog) item.approvalLog = [];
-              item.approvalLog.push({ date: new Date().toISOString(), by: KU.username, action: 'reject', reason: reason, layer: currentLayer });
-              await KDB.save(col, id, item);
+          try {
+              const item = await KDB.get(col, id);
+              if (item) {
+                  const currentLayer = getCurrentLayer(item.status);
+                  item.status = 'Rejected Layer ' + currentLayer;
+                  if (!item.approvalLog) item.approvalLog = [];
+                  item.approvalLog.push({
+                      date: new Date().toISOString(),
+                      by: KU.username,
+                      nama: KU.nama,
+                      action: 'reject',
+                      reason: reason,
+                      layer: currentLayer,
+                      note: 'Batch Reject'
+                  });
+                  await KDB.save(col, id, item);
+                  successCount++;
+              }
+          } catch(err) {
+              errorCount++;
           }
       }
-      showAlert('Berhasil menolak ' + checkboxes.length + ' item.', 'warning');
+      showAlert('Berhasil menolak ' + successCount + ' item.' + (errorCount ? ' Gagal: ' + errorCount : ''), 'warning');
       renderSection('dana-approval');
   } catch(e) {
-      showAlert('Gagal menolak batch: ' + e.message, 'danger');
+      showAlert('Gagal memproses batch: ' + e.message, 'danger');
   }
   showLoading(false);
+}
+
+async function undoApproval(col, id) {
+  if (!confirm('Undo approval item ini? Jurnal otomatis yang terkait akan dihapus.')) return;
+  showLoading(true);
+  try {
+      const item = await KDB.get(col, id);
+      if (!item) throw new Error('Data tidak ditemukan.');
+
+      if (item.jurnalId) {
+          await KDB.delete('jurnal', item.jurnalId);
+      }
+
+      item.status = STATUS.PENDING_L1; // Reset ke L1
+      delete item.jurnalId;
+
+      if (!item.approvalLog) item.approvalLog = [];
+      item.approvalLog.push({
+          date: new Date().toISOString(),
+          by: KU.username,
+          nama: KU.nama,
+          action: 'undo',
+          note: 'Undo approval final'
+      });
+
+      await KDB.save(col, id, item);
+      showAlert('Approval berhasil dibatalkan.', 'success');
+      renderSection('dana-approval');
+  } catch(e) {
+      showAlert('Gagal undo: ' + e.message, 'danger');
+  }
+  showLoading(false);
+}
+
+async function resubmitItem(col, id) {
+  if (!confirm('Ajukan ulang item ini untuk approval?')) return;
+  showLoading(true);
+  try {
+      const item = await KDB.get(col, id);
+      if (!item) throw new Error('Data tidak ditemukan.');
+
+      item.status = STATUS.PENDING_L1;
+      if (!item.approvalLog) item.approvalLog = [];
+      item.approvalLog.push({
+          date: new Date().toISOString(),
+          by: KU.username,
+          nama: KU.nama,
+          action: 'resubmit',
+          note: 'Diajukan ulang'
+      });
+
+      await KDB.save(col, id, item);
+      showAlert('Berhasil diajukan ulang.', 'success');
+      renderSection('dana-approval');
+  } catch(e) {
+      showAlert('Gagal: ' + e.message, 'danger');
+  }
+  showLoading(false);
+}
+
+async function resubmitAllDraft(col) {
+  const all = await KDB.getAll(col);
+  const drafts = all.filter(x => x.status === STATUS.DRAFT);
+  if (drafts.length === 0) return alert('Tidak ada draft.');
+
+  if (!confirm('Ajukan ulang semua ' + drafts.length + ' draft?')) return;
+
+  showLoading(true);
+  for (const item of drafts) {
+      item.status = STATUS.PENDING_L1;
+      if (!item.approvalLog) item.approvalLog = [];
+      item.approvalLog.push({ date: new Date().toISOString(), by: KU.username, action: 'resubmit_all' });
+      await KDB.save(col, item.id, item);
+  }
+  showLoading(false);
+  renderSection('dana-approval');
 }
 
 async function simpanApprovers() {
@@ -10436,224 +10593,6 @@ function detailItem(type, id) {
     else alert('Detail view not found for type: ' + type);
 }
 
-
-async function undoApproval(col, id) {
-  if (!confirm('Undo approval item ini? Jurnal otomatis yang terkait akan dihapus dan status dikembalikan ke Pending Layer 1 untuk approval ulang.')) return;
-  const list = await KDB.getAll(col);
-  const item = list.find(function(x){ return x.id === id; });
-  if (!item) { showAlert('Data tidak ditemukan!', 'warning'); return; }
-  if (item.status !== STATUS.APPROVED) { showAlert('Hanya item Approved Final yang bisa di-undo!', 'warning'); return; }
-  showLoading(true);
-  // Hapus jurnal terkait jika ada
-  if (item.jurnalId) {
-    await KDB.delete('jurnal', item.jurnalId);
-  }
-  // Tambahkan log undo
-  var log = (item.approvalLog || []).concat([{ layer: 0, action: 'undo', by: KU.username, nama: KU.nama, at: new Date().toISOString(), catatan: 'Undo approval - dikembalikan ke Pending Layer 1 untuk approval ulang' }]);
-  // Reset status ke Pending Layer 1 agar aktif kembali di approval queue dan hapus jurnalId
-  var updated = Object.assign({}, item, { status: STATUS.PENDING_L1, jurnalId: null, approvalLog: log, lastUpdatedAt: new Date().toISOString() });
-  delete updated.jurnalId;
-  await KDB.save(col, id, updated);
-  showLoading(false);
-  showAlert('Approval berhasil di-undo! Item dikembalikan ke Pending Layer 1 untuk approval ulang dan jurnal dihapus.');
-  // Navigate to approval page so user can see the item back in queue
-  navigate('dana-approval');
-}
-
-async function resubmitItem(col, id) {
-  if (!confirm('Ajukan ulang item ini ke Pending Layer 1 untuk approval?')) return;
-  const list = await KDB.getAll(col);
-  const item = list.find(function(x){ return x.id === id; });
-  if (!item) { showAlert('Data tidak ditemukan!', 'warning'); return; }
-  if (item.status !== STATUS.DRAFT) { showAlert('Hanya item Draft yang bisa diajukan ulang!', 'warning'); return; }
-  showLoading(true);
-  var log = (item.approvalLog || []).concat([{ layer: 0, action: 'resubmit', by: KU.username, nama: KU.nama, at: new Date().toISOString(), catatan: 'Diajukan ulang untuk approval' }]);
-  var updated = Object.assign({}, item, { status: STATUS.PENDING_L1, approvalLog: log, lastUpdatedAt: new Date().toISOString() });
-  await KDB.save(col, id, updated);
-  showLoading(false);
-  showAlert('Item berhasil diajukan ulang ke Pending Layer 1!');
-  navigate('dana-approval');
-}
-
-async function resubmitAllDraft(col) {
-  var colName = col === 'permohonan' ? 'Permohonan Dana' : 'Dana Masuk';
-  if (!confirm('Ajukan ulang SEMUA item Draft ' + colName + ' ke Pending Layer 1?')) return;
-  const list = await KDB.getAll(col);
-  const drafts = list.filter(function(x){ return x.status === STATUS.DRAFT; });
-  if (!drafts.length) { showAlert('Tidak ada item Draft untuk diajukan ulang.', 'warning'); return; }
-  showLoading(true);
-  var ok = 0;
-  for (var i = 0; i < drafts.length; i++) {
-    var item = drafts[i];
-    var log = (item.approvalLog || []).concat([{ layer: 0, action: 'resubmit', by: KU.username, nama: KU.nama, at: new Date().toISOString(), catatan: 'Diajukan ulang untuk approval (batch)' }]);
-    var updated = Object.assign({}, item, { status: STATUS.PENDING_L1, approvalLog: log, lastUpdatedAt: new Date().toISOString() });
-    await KDB.save(col, item.id, updated);
-    ok++;
-  }
-  showLoading(false);
-  showAlert(ok + ' item ' + colName + ' berhasil diajukan ulang ke Pending Layer 1!');
-  navigate('dana-approval');
-}
-
-async function approveSemuaItem(col) {
-  if (!confirm('Approve SEMUA item yang menunggu approval Anda? Tindakan ini tidak dapat dibatalkan.')) return;
-  const approvers = await getApprovers();
-  var myLayers = [];
-  approvers.forEach(function(a) {
-    if (a.email === KU.email) myLayers.push(a.layer);
-    else if (!a.email && a.role === KU.role) myLayers.push(a.layer);
-  });
-  if (!myLayers.length) {
-    if (KU.role === 'superadmin') myLayers = [3];
-    else if (KU.role === 'admin') myLayers = [2, 3];
-    else if (KU.role === 'leader') myLayers = [1, 2, 3];
-  }
-  const pendingStatuses = myLayers.map(function(l){ return 'Pending Layer ' + l; });
-  const list = await KDB.getAll(col);
-  const pending = list.filter(function(x){ return pendingStatuses.includes(x.status); });
-  if (!pending.length) { showAlert('Tidak ada item pending untuk di-approve.', 'warning'); return; }
-  showLoading(true);
-  var ok = 0;
-  for (var i = 0; i < pending.length; i++) {
-    var item = pending[i];
-    var currentLayer = getCurrentLayer(item.status);
-    if (!currentLayer) continue;
-    var totalLayers = (item.approvers || approvers).length;
-    var log = (item.approvalLog || []).concat([{ layer: currentLayer, action: 'approve', by: KU.username, nama: KU.nama, at: new Date().toISOString(), catatan: 'Approve massal' }]);
-    var newStatus = currentLayer >= totalLayers ? STATUS.APPROVED : 'Pending Layer ' + (currentLayer + 1);
-    await KDB.save(col, item.id, Object.assign({}, item, { status: newStatus, approvalLog: log, lastUpdatedAt: new Date().toISOString() }));
-    if (newStatus === STATUS.APPROVED) {
-      if (col === 'permohonan') await buatJurnalDariPermohonan(item.id);
-      else if (col === 'danamasuk') await buatJurnalDariDanaMasuk(item.id);
-    }
-    ok++;
-  }
-  showLoading(false);
-  showAlert(ok + ' item berhasil di-approve!');
-  navigate('dana-approval');
-}
-
-async function rejectSemuaItem(col) {
-  var catatan = prompt('Alasan penolakan massal (wajib diisi):');
-  if (!catatan || !catatan.trim()) { showAlert('Alasan penolakan wajib diisi!', 'danger'); return; }
-  if (!confirm('Reject SEMUA item yang menunggu approval Anda?')) return;
-  const approvers = await getApprovers();
-  var myLayers = [];
-  approvers.forEach(function(a) {
-    if (a.email === KU.email) myLayers.push(a.layer);
-    else if (!a.email && a.role === KU.role) myLayers.push(a.layer);
-  });
-  if (!myLayers.length) {
-    if (KU.role === 'superadmin') myLayers = [3];
-    else if (KU.role === 'admin') myLayers = [2, 3];
-    else if (KU.role === 'leader') myLayers = [1, 2, 3];
-  }
-  const pendingStatuses = myLayers.map(function(l){ return 'Pending Layer ' + l; });
-  const list = await KDB.getAll(col);
-  const pending = list.filter(function(x){ return pendingStatuses.includes(x.status); });
-  if (!pending.length) { showAlert('Tidak ada item pending untuk di-reject.', 'warning'); return; }
-  showLoading(true);
-  var ok = 0;
-  for (var i = 0; i < pending.length; i++) {
-    var item = pending[i];
-    var currentLayer = getCurrentLayer(item.status);
-    if (!currentLayer) continue;
-    var log = (item.approvalLog || []).concat([{ layer: currentLayer, action: 'reject', by: KU.username, nama: KU.nama, at: new Date().toISOString(), catatan: catatan }]);
-    await KDB.save(col, item.id, Object.assign({}, item, { status: 'Rejected Layer ' + currentLayer, approvalLog: log, lastUpdatedAt: new Date().toISOString() }));
-    ok++;
-  }
-  showLoading(false);
-  showAlert(ok + ' item berhasil di-reject!');
-  navigate('dana-approval');
-}
-
-function toggleSelectAll(masterCb, col) {
-  var checkboxes = document.querySelectorAll('.appr-check[data-col="' + col + '"]');
-  checkboxes.forEach(function(cb) { cb.checked = masterCb.checked; });
-  updateSelectedCount(col);
-}
-
-function updateSelectedCount(col) {
-  var checked = document.querySelectorAll('.appr-check[data-col="' + col + '"]:checked');
-  var el = document.getElementById('selected-count-' + col) || document.getElementById('selected-count-all-' + col);
-  if (el) el.textContent = checked.length + ' dipilih';
-}
-
-// Attach event listener for individual checkbox changes
-document.addEventListener('change', function(e) {
-  if (e.target && e.target.classList.contains('appr-check')) {
-    var col = e.target.dataset.col;
-    updateSelectedCount(col);
-  }
-});
-
-async function approveSelected(col) {
-  var checked = document.querySelectorAll('.appr-check[data-col="' + col + '"]:checked');
-  if (!checked.length) { showAlert('Pilih minimal 1 item untuk di-approve!', 'warning'); return; }
-  if (!confirm('Approve ' + checked.length + ' item yang dipilih?')) return;
-  var ids = [];
-  checked.forEach(function(cb) { ids.push(cb.dataset.id); });
-
-  const approvers = await getApprovers();
-  const list = await KDB.getAll(col);
-  showLoading(true);
-  var ok = 0;
-  for (var i = 0; i < ids.length; i++) {
-    var item = list.find(function(x){ return x.id === ids[i]; });
-    if (!item) continue;
-    var currentLayer = getCurrentLayer(item.status);
-    if (!currentLayer) continue;
-    var totalLayers = (item.approvers || approvers).length;
-    var log = (item.approvalLog || []).concat([{ layer: currentLayer, action: 'approve', by: KU.username, nama: KU.nama, at: new Date().toISOString(), catatan: 'Approve terpilih' }]);
-    var newStatus = currentLayer >= totalLayers ? STATUS.APPROVED : 'Pending Layer ' + (currentLayer + 1);
-    await KDB.save(col, item.id, Object.assign({}, item, { status: newStatus, approvalLog: log, lastUpdatedAt: new Date().toISOString() }));
-    if (newStatus === STATUS.APPROVED) {
-      if (col === 'permohonan') await buatJurnalDariPermohonan(item.id);
-      else if (col === 'danamasuk') await buatJurnalDariDanaMasuk(item.id);
-    }
-    ok++;
-  }
-  showLoading(false);
-  showAlert(ok + ' item berhasil di-approve!');
-  navigate('dana-approval');
-}
-
-async function rejectSelected(col) {
-  var checked = document.querySelectorAll('.appr-check[data-col="' + col + '"]:checked');
-  if (!checked.length) { showAlert('Pilih minimal 1 item untuk di-reject!', 'warning'); return; }
-  var catatan = prompt('Alasan penolakan (wajib diisi):');
-  if (!catatan || !catatan.trim()) { showAlert('Alasan penolakan wajib diisi!', 'danger'); return; }
-  if (!confirm('Reject ' + checked.length + ' item yang dipilih?')) return;
-  var ids = [];
-  checked.forEach(function(cb) { ids.push(cb.dataset.id); });
-
-  const approvers = await getApprovers();
-  const list = await KDB.getAll(col);
-  showLoading(true);
-  var ok = 0;
-  for (var i = 0; i < ids.length; i++) {
-    var item = list.find(function(x){ return x.id === ids[i]; });
-    if (!item) continue;
-    var currentLayer = getCurrentLayer(item.status);
-    if (!currentLayer) continue;
-    var log = (item.approvalLog || []).concat([{ layer: currentLayer, action: 'reject', by: KU.username, nama: KU.nama, at: new Date().toISOString(), catatan: catatan }]);
-    await KDB.save(col, item.id, Object.assign({}, item, { status: 'Rejected Layer ' + currentLayer, approvalLog: log, lastUpdatedAt: new Date().toISOString() }));
-    ok++;
-  }
-  showLoading(false);
-  showAlert(ok + ' item berhasil di-reject!');
-  navigate('dana-approval');
-}
-
-async function simpanApprovers() {
-  const approvers = await getApprovers();
-  const updated = approvers.map(function(a) {
-    return { layer: a.layer, nama: (document.getElementById('apr-nama-' + a.layer) || {}).value || a.nama, email: (document.getElementById('apr-email-' + a.layer) || {}).value || a.email, role: (document.getElementById('apr-role-' + a.layer) || {}).value || a.role };
-  });
-  await KDB.saveSetting('approvers', updated);
-  showAlert('Konfigurasi approver disimpan!');
-  navigate('dana-approval');
-}
 
 // ===== ADMIN USERS =====
 async function renderAdminUsers() {
