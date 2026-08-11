@@ -13,6 +13,7 @@ const KFB_CONFIG = {
 let kfbReady = false;
 let kdb = null;
 let kfs = null;
+let _kFirebaseReconnectPromise = null;
 
 async function initKFirebase() {
   try {
@@ -34,6 +35,40 @@ async function initKFirebase() {
     console.error('[KFirebase] ❌', e.message);
     return false;
   }
+}
+
+async function ensureKFirebaseReady() {
+  if (kfbReady) return true;
+  if (_kFirebaseReconnectPromise) return _kFirebaseReconnectPromise;
+  _kFirebaseReconnectPromise = (async function() {
+    try {
+      var ok = await initKFirebase();
+      if (ok) {
+        if (typeof window !== 'undefined') window._kOfflineMode = false;
+        if (typeof startRealtimeSync === 'function') startRealtimeSync();
+      }
+      return ok;
+    } catch(e) {
+      console.warn('[KFirebase] Reconnect failed:', e.message || e);
+      return false;
+    } finally {
+      _kFirebaseReconnectPromise = null;
+    }
+  })();
+  return _kFirebaseReconnectPromise;
+}
+
+function _kCollectLocalStorageKeys(filterFn) {
+  var keys = [];
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (key && (!filterFn || filterFn(key))) keys.push(key);
+    }
+  } catch(e) {
+    console.warn('[KFirebase] Storage iteration error:', e.message || e);
+  }
+  return keys;
 }
 
 // ===== KDB - Keuangan Database Layer =====
@@ -113,6 +148,10 @@ const KDB = {
   },
 
   async getAll(col) {
+    if (!kfbReady && typeof window !== 'undefined' && window._kOfflineMode) {
+      var recovered = await ensureKFirebaseReady();
+      if (recovered) return this.getAll(col);
+    }
     if (kfbReady) {
       try {
         const snap = await kfs.getDocs(kfs.collection(kdb, 'k_' + col));
@@ -132,15 +171,16 @@ const KDB = {
         var deletedPrefix = 'k_' + col + '_deleted_';
         var deletedIdSet = {};
 
-        for (var i = 0; i < localStorage.length; i++) {
-          var lsKey = localStorage.key(i);
-          if (!lsKey) continue;
+        _kCollectLocalStorageKeys(function(lsKey) {
+          return lsKey.indexOf(dirtyPrefix) === 0 || lsKey.indexOf(deletedPrefix) === 0;
+        }).forEach(function(lsKey) {
+          if (!lsKey) return;
           if (lsKey.indexOf(dirtyPrefix) === 0) {
             dirtyIdSet[lsKey.substring(dirtyPrefix.length)] = true;
           } else if (lsKey.indexOf(deletedPrefix) === 0) {
             deletedIdSet[lsKey.substring(deletedPrefix.length)] = true;
           }
-        }
+        });
 
         // Apply dirty saves
         Object.keys(dirtyIdSet).forEach(function(dirtyId) {
@@ -377,8 +417,9 @@ function _kSubscribeCollection(col, onChange, usePrefix) {
     // Ghost Fix: Filter out locally deleted items
     var deletedPrefix = cachePrefix + col + '_deleted_';
     var now2 = Date.now();
-    for (var i = 0; i < localStorage.length; i++) {
-      var lsKey = localStorage.key(i);
+    _kCollectLocalStorageKeys(function(lsKey) {
+      return lsKey.indexOf(deletedPrefix) === 0;
+    }).forEach(function(lsKey) {
       if (lsKey && lsKey.indexOf(deletedPrefix) === 0) {
         var delId = lsKey.substring(deletedPrefix.length);
         var delTime = _klget(lsKey, 0);
@@ -388,7 +429,7 @@ function _kSubscribeCollection(col, onChange, usePrefix) {
           localStorage.removeItem(lsKey);
         }
       }
-    }
+    });
 
     _klset(cachePrefix + col + '_all', items);
 
@@ -484,12 +525,11 @@ function _klset(key, val) {
     if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
       // Clear heavy caches and retry
       console.warn('[KFirebase] Quota exceeded, clearing heavy caches...');
-      for (var i = 0; i < localStorage.length; i++) {
-        var k = localStorage.key(i);
-        if (k && k.indexOf('k_') === 0 && k.indexOf('_all') > 0) {
-          localStorage.removeItem(k);
-        }
-      }
+      _kCollectLocalStorageKeys(function(k) {
+        return k.indexOf('k_') === 0 && k.indexOf('_all') > 0;
+      }).forEach(function(k) {
+        localStorage.removeItem(k);
+      });
       try { localStorage.setItem(key, JSON.stringify(val)); } catch(e2) {
         console.error('[KFirebase] Retry failed after clearing cache');
       }
