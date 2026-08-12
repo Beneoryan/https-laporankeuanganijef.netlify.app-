@@ -18,8 +18,8 @@ const STATUS = {
 
 const DEFAULT_APPROVERS = [
   { layer: 1, nama: 'Irsan Janwar Wibawa',  email: 'irsanijefcorp@gmail.com',  role: 'leader' },
-  { layer: 2, nama: 'Muhammad Agus Ryanda', email: 'agusryandaijefcorp@gmail.com', role: 'manager' },
-  { layer: 3, nama: 'Misriana',             email: 'misrianaijefcorp@gmail.com', role: 'head' },
+  { layer: 2, nama: 'Muhammad Agus Ryanda', email: 'benoeryan21@gmail.com',     role: 'superadmin' },
+  { layer: 3, nama: 'Misriana',             email: 'anaijefcorp@gmail.com',    role: 'superadmin' },
 ];
 
 // ===== STATE =====
@@ -791,10 +791,9 @@ async function initUsers() {
   const NANDA = { username: 'nanda', password: 'nanda2026', role: 'nanda', nama: 'Nanda Yoga Maulana', email: '' };
   const BOD = { username: 'bod', password: 'bod2026', role: 'bod', nama: 'Board of Directors', email: '' };
   const IRSAN = { username: 'irsan', password: 'irsan2026', role: 'leader', nama: 'Irsan Janwar Wibawa', email: 'irsanijefcorp@gmail.com' };
-  const AGUS = { username: 'agusryanda', password: 'agus2026', role: 'manager', nama: 'Muhammad Agus Ryanda', email: 'agusryandaijefcorp@gmail.com' };
-  const MISRIANA = { username: 'misriana', password: 'misriana2026', role: 'head', nama: 'Misriana', email: 'misrianaijefcorp@gmail.com' };
-  const RYAN = { username: 'ryanbenoe', password: 'ryanbenoe21', role: 'superadmin', nama: 'Ryan Benoe', email: 'benoeryan21@gmail.com' };
-  const systemUsers = [DEFAULT, NANDA, BOD, IRSAN, AGUS, MISRIANA, RYAN];
+  const RYAN = { username: 'ryanbenoe', password: 'ryanbenoe21', role: 'superadmin', nama: 'Muhammad Agus Ryanda', email: 'benoeryan21@gmail.com' };
+  const ANA = { username: 'anaijefcorp', password: 'ana2026', role: 'superadmin', nama: 'Misriana', email: 'anaijefcorp@gmail.com' };
+  const systemUsers = [DEFAULT, NANDA, BOD, IRSAN, RYAN, ANA];
 
   // Update localStorage first (fast)
   const local = _klget('kusers', []);
