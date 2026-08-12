@@ -1,10 +1,10 @@
 {
-  "name": "Sistem Keuangan IJEF Corp",
-  "short_name": "SKI",
+  "name": "Sistem Keuangan IJEF Corp v2",
+  "short_name": "SKI v2",
   "description": "Sistem Keuangan IJEF Corp - Laporan Keuangan, Pencatatan, dan Analisis",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#111115",
   "theme_color": "#a30000",
   "categories": ["business", "productivity"],
