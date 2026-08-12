@@ -3,7 +3,7 @@
 window._keuanganAppLoaded = true;
 
 // ===== CONSTANTS (must be at top) =====
-const ROLES = { superadmin: 5, head: 4, manager: 3, admin: 3, leader: 2, bod: 2, viewer: 1, nanda: 1 };
+const ROLES = { superadmin: 4, admin: 3, leader: 2, bod: 2, viewer: 1, nanda: 1 };
 
 const STATUS = {
   DRAFT:       'Draft',
@@ -17,9 +17,9 @@ const STATUS = {
 };
 
 const DEFAULT_APPROVERS = [
-  { layer: 1, nama: 'Irsan Janwar Wibawa',  email: 'irsanijefcorp@gmail.com',  role: 'leader' },
-  { layer: 2, nama: 'Muhammad Agus Ryanda', email: 'agusryandaijefcorp@gmail.com', role: 'manager' },
-  { layer: 3, nama: 'Misriana',             email: 'misrianaijefcorp@gmail.com', role: 'head' },
+  { layer: 1, nama: 'Irsan',  email: 'irsanijefcorp@gmail.com',  role: 'leader' },
+  { layer: 2, nama: 'Hokage', email: 'hokageijefcorp@gmail.com', role: 'admin' },
+  { layer: 3, nama: 'Ana',    email: 'anaijefcorp@gmail.com',    role: 'superadmin' },
 ];
 
 // ===== STATE =====
@@ -790,11 +790,11 @@ async function initUsers() {
   const DEFAULT = { username: 'superadmin', password: 'admin2026', role: 'superadmin', nama: 'Super Admin', email: '' };
   const NANDA = { username: 'nanda', password: 'nanda2026', role: 'nanda', nama: 'Nanda Yoga Maulana', email: '' };
   const BOD = { username: 'bod', password: 'bod2026', role: 'bod', nama: 'Board of Directors', email: '' };
-  const IRSAN = { username: 'irsan', password: 'irsan2026', role: 'leader', nama: 'Irsan Janwar Wibawa', email: 'irsanijefcorp@gmail.com' };
-  const AGUS = { username: 'agusryanda', password: 'agus2026', role: 'manager', nama: 'Muhammad Agus Ryanda', email: 'agusryandaijefcorp@gmail.com' };
-  const MISRIANA = { username: 'misriana', password: 'misriana2026', role: 'head', nama: 'Misriana', email: 'misrianaijefcorp@gmail.com' };
+  const IRSAN = { username: 'irsan', password: 'irsan2026', role: 'leader', nama: 'Irsan', email: 'irsanijefcorp@gmail.com' };
   const RYAN = { username: 'ryanbenoe', password: 'ryanbenoe21', role: 'superadmin', nama: 'Ryan Benoe', email: 'benoeryan21@gmail.com' };
-  const systemUsers = [DEFAULT, NANDA, BOD, IRSAN, AGUS, MISRIANA, RYAN];
+  const ANA = { username: 'anaijefcorp', password: 'ana2026', role: 'superadmin', nama: 'Ana', email: 'anaijefcorp@gmail.com' };
+  const HOKAGE = { username: 'hokage', password: 'hokage2026', role: 'admin', nama: 'Hokage', email: 'hokageijefcorp@gmail.com' };
+  const systemUsers = [DEFAULT, NANDA, BOD, IRSAN, RYAN, ANA, HOKAGE];
 
   // Update localStorage first (fast)
   const local = _klget('kusers', []);
