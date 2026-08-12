@@ -1808,29 +1808,30 @@ async function renderDashboard() {
   });
   var labaRugi = totalPendapatanKPI - totalPengeluaranKPI;
 
-  return '<div class="page-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">'
+  return '<div class="page-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px;margin-bottom:24px;font-size:1.8rem;font-weight:800;letter-spacing:-0.03em;color:#1a237e">'
     + '<span>🎯 Dashboard Keuangan</span>'
-    + '<button class="btn btn-sm btn-outline no-print" onclick="fixMandiriBalancePrompt()" style="font-size:0.7rem;padding:4px 8px">⚙️ Set Saldo Mandiri</button>'
+    + '<button class="btn btn-sm btn-outline no-print" onclick="fixMandiriBalancePrompt()" style="font-size:0.7rem;padding:4px 8px;border-radius:10px">⚙️ Set Saldo Mandiri</button>'
     + '</div>'
-    + perusahaanBanner + pendingBanner
-    + '<div class="responsive-grid-2">'
-    + '<div class="stat-box green" style="padding:24px;border-left-width:5px"><div class="val-large">' + fmtRp(totalKasBank) + '</div><div class="lbl">Total Kas & Bank</div></div>'
-    + '<div class="stat-box ' + (labaRugi >= 0 ? 'green' : 'red') + '" style="padding:24px;border-left-width:5px"><div class="val-large">' + fmtRp(labaRugi) + '</div><div class="lbl">Laba/Rugi Berjalan</div></div>'
-    + '</div>'
-    + '<div class="stats-row">'
+    + (perusahaanBanner ? '<div style="margin-bottom:20px;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.05))">' + perusahaanBanner + '</div>' : '')
+    + (pendingBanner ? '<div style="margin-bottom:25px;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.05))">' + pendingBanner + '</div>' : '')
+    + '<div class="stats-row" style="margin-bottom:20px">'
     + '<div class="stat-box"><div class="val">' + jurnal.length + '</div><div class="lbl">Total Jurnal</div></div>'
     + '<div class="stat-box orange"><div class="val">' + fmtRp(unpaidInvoice) + '</div><div class="lbl">Invoice Belum Lunas</div></div>'
     + '<div class="stat-box purple"><div class="val">' + fmtRp(totalPO) + '</div><div class="lbl">Total PO</div></div>'
     + '<div class="stat-box orange"><div class="val">' + (pendingPD+pendingDM) + '</div><div class="lbl">Pending Approval</div></div>'
     + '</div>'
     // Saldo Hari Ini — langsung di dashboard
-    + '<div class="card"><div class="card-header"><h2>💵 Posisi Saldo Hari Ini</h2>'
+    + '<div class="card" style="margin-bottom:25px;border-top:4px solid #1a237e"><div class="card-header"><h2>💵 Posisi Saldo Hari Ini</h2>'
     + '<span class="text-muted" style="font-size:0.8rem">' + new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) + '</span></div>'
     + '<div class="saldo-grid">' + saldoCards + '</div>'
-    + '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center">'
-    + '<span class="text-muted" style="font-size:0.82rem">Total Kas & Bank</span>'
-    + '<span class="fw-bold text-blue" style="font-size:1.1rem">' + fmtRp(totalKasBank) + '</span>'
+    + '<div style="margin-top:15px;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center">'
+    + '<span class="text-muted" style="font-size:0.85rem">Total Kas & Bank (Sistem)</span>'
+    + '<span class="fw-bold text-blue" style="font-size:1.25rem">' + fmtRp(totalKasBank) + '</span>'
     + '</div></div>'
+    + '<div class="responsive-grid-2" style="margin-bottom:25px">'
+    + '<div class="stat-box green" style="padding:28px;border-left-width:6px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1)"><div class="val-large">' + fmtRp(totalKasBank) + '</div><div class="lbl" style="font-size:0.9rem;font-weight:700">Total Kas & Bank</div></div>'
+    + '<div class="stat-box ' + (labaRugi >= 0 ? 'green' : 'red') + '" style="padding:28px;border-left-width:6px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1)"><div class="val-large">' + fmtRp(labaRugi) + '</div><div class="lbl" style="font-size:0.9rem;font-weight:700">Laba/Rugi Berjalan</div></div>'
+    + '</div>'
     + '<div class="responsive-grid-2">'
     + '<div class="card"><div class="card-header"><h2>📝 Transaksi Terbaru</h2>' + (KU.role !== 'bod' ? '<button class="btn btn-sm btn-outline" onclick="navigate(\'jurnal-umum\')">Lihat Semua</button>' : '') + '</div>'
     + '<div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Keterangan</th><th>Debit</th></tr></thead><tbody>' + jurnalRows + '</tbody></table></div></div>'
@@ -1974,21 +1975,29 @@ async function renderDashboardApprover() {
   });
   var labaRugi2 = totalPendapatanKPI2 - totalPengeluaranKPI2;
 
-  return '<div class="page-title">🎯 Dashboard Keuangan</div>'
-    + perusahaanBanner + pendingBanner
-    // Primary KPI row
-    + '<div class="responsive-grid-2">'
-    + '<div class="stat-box green" style="padding:24px;border-left-width:5px"><div class="val-large">' + fmtRp(totalKasBank2) + '</div><div class="lbl">Total Kas & Bank</div></div>'
-    + '<div class="stat-box ' + (labaRugi2 >= 0 ? 'green' : 'red') + '" style="padding:24px;border-left-width:5px"><div class="val-large">' + fmtRp(labaRugi2) + '</div><div class="lbl">Laba/Rugi Berjalan</div></div>'
-    + '</div>'
-    + '<div class="stats-row">'
+  return '<div class="page-title" style="margin-bottom:24px;font-size:1.8rem;font-weight:800;letter-spacing:-0.03em;color:#1a237e">🎯 Dashboard Keuangan</div>'
+    + (perusahaanBanner ? '<div style="margin-bottom:20px;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.05))">' + perusahaanBanner + '</div>' : '')
+    + (pendingBanner ? '<div style="margin-bottom:25px;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.05))">' + pendingBanner + '</div>' : '')
+    + '<div class="stats-row" style="margin-bottom:20px">'
     + '<div class="stat-box"><div class="val">' + jurnal.length + '</div><div class="lbl">Total Jurnal</div></div>'
     + '<div class="stat-box orange"><div class="val">' + fmtRp(unpaidInvoice) + '</div><div class="lbl">Invoice Belum Lunas</div></div>'
     + '<div class="stat-box purple"><div class="val">' + fmtRp(totalPO) + '</div><div class="lbl">Total PO</div></div>'
     + '<div class="stat-box orange"><div class="val">' + (pendingPD+pendingDM) + '</div><div class="lbl">Pending Approval</div></div>'
     + '</div>'
     // Posisi Saldo Hari Ini
-    + '<div class="card"><div class="card-header"><h2>💵 Posisi Saldo Hari Ini</h2>'
+    + '<div class="card" style="margin-bottom:25px;border-top:4px solid #1a237e"><div class="card-header"><h2>💵 Posisi Saldo Hari Ini</h2>'
+    + '<span class="text-muted" style="font-size:0.8rem">' + new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) + '</span></div>'
+    + '<div class="saldo-grid">' + saldoCards + '</div>'
+    + '<div style="margin-top:15px;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center">'
+    + '<span class="text-muted" style="font-size:0.85rem">Total Kas & Bank (Sistem)</span>'
+    + '<span class="fw-bold text-blue" style="font-size:1.25rem">' + fmtRp(totalKasBank2) + '</span>'
+    + '</div></div>'
+    // Primary KPI row
+    + '<div class="responsive-grid-2" style="margin-bottom:25px">'
+    + '<div class="stat-box green" style="padding:28px;border-left-width:5px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1)"><div class="val-large">' + fmtRp(totalKasBank2) + '</div><div class="lbl" style="font-size:0.9rem;font-weight:700">Total Kas & Bank</div></div>'
+    + '<div class="stat-box ' + (labaRugi2 >= 0 ? 'green' : 'red') + '" style="padding:28px;border-left-width:5px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1)"><div class="val-large">' + fmtRp(labaRugi2) + '</div><div class="lbl" style="font-size:0.9rem;font-weight:700">Laba/Rugi Berjalan</div></div>'
+    + '</div>'
+    + '<div class="responsive-grid-2">'
     + '<span class="text-muted" style="font-size:0.8rem">' + new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) + '</span></div>'
     + '<div class="saldo-grid">' + saldoCards + '</div>'
     + '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center">'
