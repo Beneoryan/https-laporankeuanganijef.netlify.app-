@@ -1780,18 +1780,18 @@ async function renderDashboard() {
       + (actual > 0 ? '<br><span style="color:#64748b">Selisih:</span> <b class="' + sCls + '">' + fmtRp(selisih) + '</b>' : '')
       + '</div>';
 
-    return '<div style="background:' + bg + ';border-radius:12px;padding:16px;border-left:3px solid ' + border + ';box-shadow:0 1px 3px rgba(0,0,0,0.04)">'
-      + '<div style="font-size:0.75rem;color:#64748b">' + a.nama + '</div>'
-      + '<div class="fw-bold ' + cls + ' saldo-card-val" style="margin-top:3px;word-break:break-word;line-height:1.2">' + fmtRp(Math.abs(net)) + '</div>'
+    return '<div class="stat-box" style="background:' + bg + ';border-radius:16px;padding:22px;border-left:6px solid ' + border + ';box-shadow:0 10px 15px -3px rgba(0,0,0,0.05);min-height:120px">'
+      + '<div style="font-size:0.8rem;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">' + a.nama + '</div>'
+      + '<div class="fw-bold ' + cls + '" style="font-size:1.65rem;margin-top:8px;word-break:break-word;line-height:1.1;letter-spacing:-0.02em">' + fmtRp(Math.abs(net)) + '</div>'
       + selisihInfo
       + '</div>';
   }).join('')
-    + '<div style="background:#fff8f8;border-radius:12px;padding:16px;border-left:3px solid #f43f5e;box-shadow:0 1px 3px rgba(0,0,0,0.04)">'
-    + '<div style="font-size:0.75rem;color:#64748b">Pengeluaran Hari Ini</div>'
-    + '<div class="fw-bold text-red saldo-card-val" style="margin-top:3px;word-break:break-word;line-height:1.2">' + fmtRp(pengeluaranHariIni) + '</div></div>'
-    + '<div style="background:#f8fff8;border-radius:12px;padding:16px;border-left:3px solid #10b981;box-shadow:0 1px 3px rgba(0,0,0,0.04)">'
-    + '<div style="font-size:0.75rem;color:#64748b">Pendapatan Hari Ini</div>'
-    + '<div class="fw-bold text-green saldo-card-val" style="margin-top:3px;word-break:break-word;line-height:1.2">' + fmtRp(pendapatanHariIni) + '</div></div>';
+    + '<div class="stat-box red" style="padding:22px;border-left-width:6px;border-radius:16px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.05);min-height:120px">'
+    + '<div style="font-size:0.8rem;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Pengeluaran Hari Ini</div>'
+    + '<div class="fw-bold text-red" style="font-size:1.65rem;margin-top:8px;word-break:break-word;line-height:1.1;letter-spacing:-0.02em">' + fmtRp(pengeluaranHariIni) + '</div></div>'
+    + '<div class="stat-box green" style="padding:22px;border-left-width:6px;border-radius:16px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.05);min-height:120px">'
+    + '<div style="font-size:0.8rem;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Pendapatan Hari Ini</div>'
+    + '<div class="fw-bold text-green" style="font-size:1.65rem;margin-top:8px;word-break:break-word;line-height:1.1;letter-spacing:-0.02em">' + fmtRp(pendapatanHariIni) + '</div></div>';
   const totalKasBank = kasAkun.reduce(function(s,a){
     if ((a.nama||'').toLowerCase().includes('petty') || a.kode === '1-1101-3') return s + pcSaldoReal;
     return s + (((saldo[a.kode]||{}).net)||0);
@@ -1808,30 +1808,34 @@ async function renderDashboard() {
   });
   var labaRugi = totalPendapatanKPI - totalPengeluaranKPI;
 
-  return '<div class="page-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px;margin-bottom:24px;font-size:1.8rem;font-weight:800;letter-spacing:-0.03em;color:#1a237e">'
+  return '<div class="page-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px;margin-bottom:30px;padding:15px 0;border-bottom:1px solid #e2e8f0;font-size:2.1rem;font-weight:800;letter-spacing:-0.04em;color:#1a237e">'
     + '<span>🎯 Dashboard Keuangan</span>'
-    + '<button class="btn btn-sm btn-outline no-print" onclick="fixMandiriBalancePrompt()" style="font-size:0.7rem;padding:4px 8px;border-radius:10px">⚙️ Set Saldo Mandiri</button>'
     + '</div>'
     + (perusahaanBanner ? '<div style="margin-bottom:20px;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.05))">' + perusahaanBanner + '</div>' : '')
     + (pendingBanner ? '<div style="margin-bottom:25px;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.05))">' + pendingBanner + '</div>' : '')
-    + '<div class="stats-row" style="margin-bottom:20px">'
+
+    + '<div class="responsive-grid-2" style="margin-bottom:25px">'
+    + '<div class="stat-box green" style="padding:28px;border-left-width:6px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1)"><div class="val-large">' + fmtRp(totalKasBank) + '</div><div class="lbl" style="font-size:0.9rem;font-weight:700">Total Kas & Bank</div></div>'
+    + '<div class="stat-box ' + (labaRugi >= 0 ? 'green' : 'red') + '" style="padding:28px;border-left-width:6px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1)"><div class="val-large">' + fmtRp(labaRugi) + '</div><div class="lbl" style="font-size:0.9rem;font-weight:700">Laba/Rugi Berjalan</div></div>'
+    + '</div>'
+
+    + '<div class="stats-row" style="margin-bottom:25px">'
     + '<div class="stat-box"><div class="val">' + jurnal.length + '</div><div class="lbl">Total Jurnal</div></div>'
     + '<div class="stat-box orange"><div class="val">' + fmtRp(unpaidInvoice) + '</div><div class="lbl">Invoice Belum Lunas</div></div>'
     + '<div class="stat-box purple"><div class="val">' + fmtRp(totalPO) + '</div><div class="lbl">Total PO</div></div>'
     + '<div class="stat-box orange"><div class="val">' + (pendingPD+pendingDM) + '</div><div class="lbl">Pending Approval</div></div>'
     + '</div>'
+
     // Saldo Hari Ini — langsung di dashboard
-    + '<div class="card" style="margin-bottom:25px;border-top:4px solid #1a237e"><div class="card-header"><h2>💵 Posisi Saldo Hari Ini</h2>'
+    + '<div class="card" style="margin-bottom:25px;border-top:5px solid #1a237e"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center"><div><h2>💵 Posisi Saldo Hari Ini</h2>'
     + '<span class="text-muted" style="font-size:0.8rem">' + new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) + '</span></div>'
+    + '<button class="btn btn-sm btn-outline no-print" onclick="fixMandiriBalancePrompt()" style="font-size:0.72rem;padding:6px 12px;border-radius:10px;font-weight:700">⚙️ SET SALDO AKTUAL BANK</button></div>'
     + '<div class="saldo-grid">' + saldoCards + '</div>'
-    + '<div style="margin-top:15px;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center">'
-    + '<span class="text-muted" style="font-size:0.85rem">Total Kas & Bank (Sistem)</span>'
-    + '<span class="fw-bold text-blue" style="font-size:1.25rem">' + fmtRp(totalKasBank) + '</span>'
+    + '<div style="margin-top:20px;padding-top:15px;border-top:1.5px solid #eee;display:flex;justify-content:space-between;align-items:center">'
+    + '<span class="text-muted" style="font-size:0.9rem;font-weight:600">Total Kas & Bank (Sistem)</span>'
+    + '<span class="fw-bold text-blue" style="font-size:1.4rem">' + fmtRp(totalKasBank) + '</span>'
     + '</div></div>'
-    + '<div class="responsive-grid-2" style="margin-bottom:25px">'
-    + '<div class="stat-box green" style="padding:28px;border-left-width:6px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1)"><div class="val-large">' + fmtRp(totalKasBank) + '</div><div class="lbl" style="font-size:0.9rem;font-weight:700">Total Kas & Bank</div></div>'
-    + '<div class="stat-box ' + (labaRugi >= 0 ? 'green' : 'red') + '" style="padding:28px;border-left-width:6px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1)"><div class="val-large">' + fmtRp(labaRugi) + '</div><div class="lbl" style="font-size:0.9rem;font-weight:700">Laba/Rugi Berjalan</div></div>'
-    + '</div>'
+
     + '<div class="responsive-grid-2">'
     + '<div class="card"><div class="card-header"><h2>📝 Transaksi Terbaru</h2>' + (KU.role !== 'bod' ? '<button class="btn btn-sm btn-outline" onclick="navigate(\'jurnal-umum\')">Lihat Semua</button>' : '') + '</div>'
     + '<div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Keterangan</th><th>Debit</th></tr></thead><tbody>' + jurnalRows + '</tbody></table></div></div>'
