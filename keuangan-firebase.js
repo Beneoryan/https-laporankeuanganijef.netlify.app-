@@ -77,12 +77,16 @@ const KDB = {
   // ---- USERS ----
   async saveUser(u) {
     _klset('ku_' + u.username, u);
+    _klset('k_users_dirty_' + u.username, Date.now());
     const list = _klget('kusers', []);
     const i = list.findIndex(x => x.username === u.username);
     if (i >= 0) list[i] = u; else list.push(u);
     _klset('kusers', list);
     if (kfbReady) {
-      try { await kfs.setDoc(kfs.doc(kdb, 'k_users', u.username), u); } catch(e) { console.warn(e); }
+      try {
+        await kfs.setDoc(kfs.doc(kdb, 'k_users', u.username), u);
+        localStorage.removeItem('k_users_dirty_' + u.username);
+      } catch(e) { console.warn(e); }
     }
   },
 
@@ -90,7 +94,28 @@ const KDB = {
     if (kfbReady) {
       try {
         const snap = await kfs.getDocs(kfs.collection(kdb, 'k_users'));
-        const users = snap.docs.map(d => d.data());
+        var users = snap.docs.map(d => d.data());
+
+        // Merge with dirty items to prevent stale overwrite
+        var now = Date.now();
+        var dirtyPrefix = 'k_users_dirty_';
+        for (var i = 0; i < localStorage.length; i++) {
+          var key = localStorage.key(i);
+          if (key && key.indexOf(dirtyPrefix) === 0) {
+            var username = key.substring(dirtyPrefix.length);
+            var dirtyTime = _klget(key, 0);
+            if (dirtyTime && (now - dirtyTime) < 10000) {
+              var localUser = _klget('ku_' + username, null);
+              if (localUser) {
+                var idx = users.findIndex(function(x){ return x.username === username; });
+                if (idx >= 0) users[idx] = localUser; else users.push(localUser);
+              }
+            } else {
+              localStorage.removeItem(key);
+            }
+          }
+        }
+
         if (users.length > 0) { _klset('kusers', users); return users; }
       } catch(e) { console.warn(e); }
     }

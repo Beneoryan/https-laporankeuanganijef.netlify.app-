@@ -77,6 +77,7 @@ const MENU = [
     { id: 'lap-print-bundle', label: 'Print Laporan Keuangan', icon: '🖨️', minRole: 'viewer' },
   ]},
   { group: 'Kalkulator', icon: '🧮', items: [
+    { id: 'kalk-inventori-atk', label: 'Inventori Stok ATK',     icon: '📋', minRole: 'viewer' },
     { id: 'kalk-penyusutan',    label: 'Penyusutan Aset',        icon: '📉', minRole: 'viewer' },
     { id: 'kalk-perlengkapan',  label: 'Perlengkapan',           icon: '🔧', minRole: 'viewer' },
     { id: 'kalk-pettycash',     label: 'Petty Cash',             icon: '💵', minRole: 'viewer' },
@@ -853,6 +854,13 @@ async function findUser(username, password) {
   // 2. Try Firebase lookup (with timeout)
   if (kfbReady) {
     try {
+      // Prioritaskan data lokal jika baru saja diubah (dirty flag) untuk mencegah overwrite data lama dari Firebase lag
+      const dirtyTime = _klget('k_users_dirty_' + username, 0);
+      if (dirtyTime && (Date.now() - dirtyTime) < 10000) {
+        const localUser = _klget('ku_' + username, null);
+        if (localUser && localUser.password === password) return localUser;
+      }
+
       const fbPromise = (async () => {
         // We try the exact username first
         let snap = await kfs.getDoc(kfs.doc(kdb, 'k_users', username));
@@ -1055,16 +1063,18 @@ function buildSidebar() {
           'lap-analisis',
           'dana-approval',
           'ims-live-karyawan',
-          'portal-komunikasi'
+          'portal-komunikasi',
+          'kalk-inventori-atk'
         ];
-        return allowedIds.includes(item.id);
+        if (allowedIds.includes(item.id)) return true;
+        return ['Kalkulator', 'Bantuan', 'Komunikasi'].includes(groupName);
     }
 
     if (isLimited) {
         if (groupName === 'Laporan') return ['lap-dashboard', 'lap-print-bundle'].includes(item.id);
         if (groupName === 'Transaksi') return item.id === 'dana-approval' || isIMSMenuItem(item);
         if (groupName === 'Monitor') return item.id.startsWith('monitor-');
-        return groupName === 'Bantuan';
+        return ['Kalkulator', 'Bantuan', 'Komunikasi'].includes(groupName);
     }
 
     // Default for Admin or other roles
@@ -10748,12 +10758,21 @@ async function simpanEditUser(username) {
   const u = users.find(function(x){ return x.username === username; });
   if (!u) return;
   const newPass = document.getElementById('eu-pass').value;
-  await KDB.saveUser(Object.assign({}, u, {
+  const updatedUser = Object.assign({}, u, {
     nama: document.getElementById('eu-nama').value.trim(),
     email: document.getElementById('eu-email').value.trim(),
     role: document.getElementById('eu-role').value,
     password: newPass || u.password
-  }));
+  });
+
+  await KDB.saveUser(updatedUser);
+
+  // Jika yang diedit adalah user yang sedang login, update variable KU dan session
+  if (KU && KU.username === username) {
+    KU = updatedUser;
+    _klset('k_session', { username: KU.username, password: KU.password });
+  }
+
   closeModalDirect();
   showAlert('User diperbarui!');
   navigate('admin-users');
