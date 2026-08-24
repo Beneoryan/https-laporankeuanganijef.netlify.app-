@@ -155,7 +155,8 @@ function fmtDate(d) {
 }
 
 function today() {
-  return new Date().toISOString().split('T')[0];
+  const n = new Date();
+  return n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
 }
 
 function formatNominalInput(el) {
@@ -1701,6 +1702,9 @@ function getKasBankAccounts(akunList) {
 // ===== DASHBOARD =====
 async function renderDashboard() {
   if (KU.role === 'nanda') return renderPortalAset();
+  // Auto-process items that reached their due date before calculating balance
+  await autoJurnalJatuhTempo();
+
   if (KU.role === 'viewer' || KU.role === 'leader' || KU.role === 'bod') return renderDashboardApprover();
   const jurnal = await KDB.getAll('jurnal');
   const invoices = await KDB.getAll('invoice');
@@ -1874,6 +1878,9 @@ function startDashAutoRefresh() {
 }
 
 async function renderDashboardApprover() {
+  // Auto-process items that reached their due date
+  await autoJurnalJatuhTempo();
+
   // Full dashboard — same as admin but with approval focus
   const perusahaan = await KDB.getSetting('perusahaan', {});
   const jurnal = await KDB.getAll('jurnal');
@@ -3579,6 +3586,7 @@ async function autoJurnalJatuhTempo() {
         }
         var akunDebit = p.akunDebit || '5-2200';
         var akunKredit = p.akunKredit || await getAkunKasBank();
+        var nominal = parseNominal(p.nominal);
         var jurnalId = genId('JU');
         await KDB.save('jurnal', jurnalId, {
           id: jurnalId,
@@ -3586,12 +3594,12 @@ async function autoJurnalJatuhTempo() {
           keterangan: p.keterangan || ('Pembayaran - ' + p.namaPemohon),
           noRef: p.noPOInvoice || p.id,
           tipe: 'umum', sumber: 'auto-jatuh-tempo',
-          meta: { permohonanId: p.id, pemohon: p.namaPemohon },
+          meta: { permohonanId: p.id, pemohon: p.namaPemohon, namaBank: p.namaBank, noRekening: p.noRekening },
           lines: [
-            { akun: akunDebit, ket: p.keterangan || ('Pembayaran ' + p.namaPemohon), debit: parseFloat(p.nominal)||0, kredit: 0 },
-            { akun: akunKredit, ket: 'Kas keluar - ' + (p.namaBank||'Bank'), debit: 0, kredit: parseFloat(p.nominal)||0 }
+            { akun: akunDebit, ket: p.keterangan || ('Pembayaran ' + p.namaPemohon), debit: nominal, kredit: 0 },
+            { akun: akunKredit, ket: 'Kas keluar - ' + (p.namaBank||'Bank') + ' ' + (p.noRekening||''), debit: 0, kredit: nominal }
           ],
-          totalDebit: parseFloat(p.nominal)||0, totalKredit: parseFloat(p.nominal)||0,
+          totalDebit: nominal, totalKredit: nominal,
           createdBy: 'system-auto-jatuh-tempo', createdAt: new Date().toISOString()
         });
         await KDB.save('permohonan', p.id, Object.assign({}, p, { jurnalId: jurnalId, jurnalCreatedAt: new Date().toISOString() }));
@@ -3614,6 +3622,7 @@ async function autoJurnalJatuhTempo() {
         }
         var akunDebitDM = d.akunTerima || await getAkunKasBank();
         var akunKreditDM = d.kategori && (d.kategori.startsWith('4-') || d.kategori.startsWith('3-') || d.kategori.startsWith('1-')) ? d.kategori : '4-1000';
+        var nominalDM = parseNominal(d.nominal);
         var jurnalIdDM = genId('JU');
         await KDB.save('jurnal', jurnalIdDM, {
           id: jurnalIdDM,
@@ -3623,16 +3632,16 @@ async function autoJurnalJatuhTempo() {
           tipe: 'umum', sumber: 'auto-jatuh-tempo',
           meta: { danaMasukId: d.id, sumber: d.sumber },
           lines: [
-            { akun: akunDebitDM, ket: 'Dana masuk dari ' + d.sumber, debit: parseFloat(d.nominal)||0, kredit: 0 },
-            { akun: akunKreditDM, ket: d.keterangan || d.sumber, debit: 0, kredit: parseFloat(d.nominal)||0 }
+            { akun: akunDebitDM, ket: 'Dana masuk dari ' + d.sumber, debit: nominalDM, kredit: 0 },
+            { akun: akunKreditDM, ket: d.keterangan || d.sumber, debit: 0, kredit: nominalDM }
           ],
-          totalDebit: parseFloat(d.nominal)||0, totalKredit: parseFloat(d.nominal)||0,
+          totalDebit: nominalDM, totalKredit: nominalDM,
           createdBy: 'system-auto-jatuh-tempo', createdAt: new Date().toISOString()
         });
         await KDB.save('danamasuk', d.id, Object.assign({}, d, { jurnalId: jurnalIdDM, jurnalCreatedAt: new Date().toISOString() }));
         count++;
       } catch (e) {
-        errors.push('DanaMasuk ' + d.id + ': ' + (e.message || e));
+        errors.push('Dana Masuk ' + d.id + ': ' + (e.message || e));
       }
     }
 
