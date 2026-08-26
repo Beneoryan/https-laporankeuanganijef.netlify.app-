@@ -123,7 +123,7 @@ const MENU = [
 // ===== HELPERS =====
 function isIMSMenuItem(item) {
   if (!item) return false;
-  return ['ims-menu-keu', 'ims-finance', 'ims-sub-keu', 'kalk-inventori-atk', 'ims-sync-perjalanan', 'ims-sync-lap-keu'].includes(item.id);
+  return ['ims-menu-keu', 'ims-finance', 'ims-sub-keu', 'kalk-inventori-atk', 'ims-sync-perjalanan', 'ims-sync-lap-keu', 'kalk-pettycash', 'kalk-pettycash-rec'].includes(item.id);
 }
 
 function showLoading(v) {
@@ -1072,10 +1072,11 @@ function buildSidebar() {
     }
 
     if (isLimited) {
-        if (groupName === 'Laporan') return ['lap-dashboard', 'lap-print-bundle'].includes(item.id);
-        if (groupName === 'Transaksi') return item.id === 'dana-approval' || isIMSMenuItem(item);
+        if (groupName === 'Laporan') return ['lap-dashboard', 'lap-print-bundle', 'lap-labarugi', 'lap-neraca', 'lap-aruskas', 'lap-saldo', 'lap-analisis'].includes(item.id);
+        if (groupName === 'Transaksi') return item.id === 'dana-approval' || isIMSMenuItem(item) || item.id === 'portal-aset';
         if (groupName === 'Monitor') return item.id.startsWith('monitor-');
-        return ['Kalkulator', 'Bantuan', 'Komunikasi'].includes(groupName);
+        if (groupName === 'Kalkulator' || groupName === 'Bantuan' || groupName === 'Komunikasi' || groupName === 'Sinkron HR-Legal') return true;
+        return false;
     }
 
     // Default for Admin or other roles
@@ -17450,6 +17451,18 @@ window.onKDBUpdate = function(col, items) {
     }
   } else if (col === 'notifikasi') {
     showNotifToast(items);
+  } else if (col === 'jurnal') {
+    // Auto refresh laporan jika ada perubahan jurnal
+    if (currentSection && currentSection.indexOf('lap-') === 0) {
+       console.log('[AutoRefresh] Jurnal updated, refreshing report:', currentSection);
+       // Gunakan delay sedikit agar tidak terlalu sering refresh jika banyak update beruntun
+       if (window._reportRefreshTimeout) clearTimeout(window._reportRefreshTimeout);
+       window._reportRefreshTimeout = setTimeout(function() {
+         if (currentSection && currentSection.indexOf('lap-') === 0) {
+           renderSection(currentSection);
+         }
+       }, 2000);
+    }
   }
 };
 
